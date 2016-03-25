@@ -20,7 +20,7 @@ namespace GestureSign.Common.Gestures
         #region Private Variables
 
         // Create variable to hold the only allowed instance of this class
-        static readonly GestureManager _Instance = new GestureManager();
+        private static GestureManager _instance;
 
         // Create read/write list of IGestures to hold system gestures
         List<IGesture> _Gestures = new List<IGesture>();
@@ -32,7 +32,6 @@ namespace GestureSign.Common.Gestures
 
         #region Public Instance Properties
 
-        public bool FinishedLoading { get; set; }
         public string GestureName { get; set; }
         public IGesture[] Gestures
         {
@@ -71,8 +70,10 @@ namespace GestureSign.Common.Gestures
 
         public static GestureManager Instance
         {
-            get { return _Instance; }
+            get { return _instance ?? (_instance = new GestureManager()); }
         }
+
+        public static bool FinishedLoading { get; set; }
 
         #endregion
 
@@ -80,35 +81,18 @@ namespace GestureSign.Common.Gestures
 
         protected void TouchCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
         {
-            this.GestureName = GetGestureName(e.Points);
-        }
-
-        protected void TouchCapture_AfterPointsCaptured(object sender, PointsCapturedEventArgs e)
-        {
-            RecognizeGesture(e.Points, e.CapturePoint);
+            e.GestureName = this.GestureName = GetGestureName(e.Points);
         }
 
         #endregion
 
         #region Custom Events
 
-        public event EventHandler OnLoadGesturesCompleted;
+        public static event EventHandler OnLoadGesturesCompleted;
         // Define events to allow other classes to subscribe to
-        public event RecognitionEventHandler GestureRecognized;
-        public event RecognitionEventHandler GestureNotRecognized;
-
-        public event GestureEventHandler GestureEdited;
-        public event EventHandler GestureSaved;
+        public static event GestureEventHandler GestureEdited;
+        public static event EventHandler GestureSaved;
         // Define protected method to notifiy subscribers of events
-        protected virtual void OnGestureRecognized(RecognitionEventArgs e)
-        {
-            if (GestureRecognized != null) GestureRecognized(this, e);
-        }
-
-        protected virtual void OnGestureNotRecognized(RecognitionEventArgs e)
-        {
-            if (GestureNotRecognized != null) GestureNotRecognized(this, e);
-        }
 
         protected virtual void OnGestureEdited(GestureEventArgs e)
         {
@@ -118,14 +102,6 @@ namespace GestureSign.Common.Gestures
 
         #region Private Methods
 
-        private void RecognizeGesture(List<List<Point>> Points, Point[] CapturePoint)
-        {
-            // Fire recognized event if we found a gesture match, otherwise throw not recognized event
-            if (GestureName != null)
-                OnGestureRecognized(new RecognitionEventArgs(GestureName, Points, CapturePoint));
-            else
-                OnGestureNotRecognized(new RecognitionEventArgs(Points, CapturePoint));
-        }
 
         #endregion
 
@@ -139,7 +115,6 @@ namespace GestureSign.Common.Gestures
             if (touchCapture != null)
             {
                 touchCapture.BeforePointsCaptured += new PointsCapturedEventHandler(TouchCapture_BeforePointsCaptured);
-                touchCapture.AfterPointsCaptured += new PointsCapturedEventHandler(TouchCapture_AfterPointsCaptured);
             }
         }
 

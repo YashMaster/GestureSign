@@ -41,6 +41,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -88,18 +89,20 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MahApps.Metro, Version=1.1.2.0, Culture=neutral, PublicKeyToken=f4fb5a3c4d1e5b4f, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\MahApps.Metro.1.1.2.0\lib\net45\MahApps.Metro.dll</HintPath>
+    <Reference Include="MahApps.Metro, Version=1.2.4.0, Culture=neutral, PublicKeyToken=f4fb5a3c4d1e5b4f, processorArchitecture=MSIL">
+      <HintPath>..\packages\MahApps.Metro.1.2.4.0\lib\net45\MahApps.Metro.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Win32.TaskScheduler">
       <HintPath>..\packages\TaskScheduler.2.3.1\lib\4\Microsoft.Win32.TaskScheduler.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Interactivity, Version=4.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\MahApps.Metro.1.1.2.0\lib\net45\System.Windows.Interactivity.dll</HintPath>
+      <HintPath>..\packages\MahApps.Metro.1.2.4.0\lib\net45\System.Windows.Interactivity.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
@@ -117,20 +120,18 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Converters\AllowSingleBoolConverter.cs" />
-    <Compile Include="Converters\Bool2VisibilityConverter.cs" />
-    <Compile Include="Converters\InterceptTouchInputBoolConverter.cs" />
-    <Compile Include="Converters\InterceptTouchInputCheckBoxConverter.cs" />
-    <Compile Include="Converters\ListviewItem2TextBoxConverter.cs" />
+    <Compile Include="Common\ErrorReport.cs" />
     <Compile Include="Converters\MatchUsing2VisibilityConverter.cs" />
     <Compile Include="Converters\MatchUsing2StringConverter.cs" />
-    <Compile Include="Converters\SelectedItemConverter.cs" />
     <Compile Include="Converters\MatchStringConverter.cs" />
     <Compile Include="Converters\ApplicationListHeaderConverter.cs" />
     <Compile Include="Converters\BoolConverter.cs" />
-    <Compile Include="Converters\HeaderConverter.cs" />
     <Compile Include="Converters\VisibilityConverter.cs" />
     <Compile Include="Common\ActionInfo.cs" />
+    <Compile Include="Dialogs\ApplicationDialog.xaml.cs">
+      <DependentUpon>ApplicationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Localization\LocalizationProviderEx.cs" />
     <Compile Include="MessageProcessor.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -148,9 +149,6 @@
     <Compile Include="Common\GestureItem.cs" />
     <Compile Include="Common\MatchUsingRadio.xaml.cs">
       <DependentUpon>MatchUsingRadio.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Flyouts\EditApplicationFlyout.cs">
-      <DependentUpon>EditApplicationFlyout.xaml</DependentUpon>
     </Compile>
     <Compile Include="Common\UIHelper.cs" />
     <Compile Include="MainWindowControls\IgnoredApplications.cs">
@@ -173,6 +171,10 @@
     </Compile>
     <Compile Include="Common\SliderTools.cs" />
     <Compile Include="ViewModel\GestureItemProvider.cs" />
+    <Page Include="Dialogs\ApplicationDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -194,10 +196,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Common\MatchUsingRadio.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Flyouts\EditApplicationFlyout.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -256,10 +254,6 @@
       <Project>{038047a4-e3f8-4b49-9762-7f63971b8319}</Project>
       <Name>GestureSign.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\GestureSign.CorePlugins\GestureSign.CorePlugins.csproj">
-      <Project>{60070af1-c987-4c5b-afd1-b9dfaf47e35c}</Project>
-      <Name>GestureSign.CorePlugins</Name>
-    </ProjectReference>
     <ProjectReference Include="..\GestureSign.PointPatterns\GestureSign.PointPatterns.csproj">
       <Project>{69f91bd1-6986-4079-9537-ed1a1d8ebe06}</Project>
       <Name>GestureSign.PointPatterns</Name>
@@ -307,12 +301,17 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="LanguageData\zh.xml" />
+    <Content Include="Languages\ControlPanel\zh.xml">
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <SplashScreen Include="Resources\splash.png" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="LanguageData\en.xml">
+    <Content Include="Languages\ControlPanel\en.xml">
       <SubType>Designer</SubType>
-    </Resource>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

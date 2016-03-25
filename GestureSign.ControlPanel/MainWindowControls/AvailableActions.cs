@@ -1,23 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-
 using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Windows.Controls.Primitives;
-using GestureSign.Common;
+using System.Windows.Media;
 using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Plugins;
@@ -25,7 +17,6 @@ using GestureSign.Common.Gestures;
 using GestureSign.Common.Localization;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.Dialogs;
-using GestureSign.ControlPanel.Flyouts;
 using MahApps.Metro.Controls.Dialogs;
 
 
@@ -72,23 +63,31 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     BindApplications();
                     _selecteNewestItem = true;
                     lstAvailableApplication.SelectedItem = e.Application;
+                    lstAvailableApplication.ScrollIntoView(e.Application);
                 }
             };
             AvailableGestures.GestureChanged += (o, e) => { RefreshActions(true); };
             GestureDefinition.GesturesChanged += (o, e) => { RefreshActions(true); };
-            EditApplicationFlyout.ApplicationChanged += (o, e) => { BindApplications(); lstAvailableApplication.SelectedItem = e.Application; };
+            ApplicationDialog.UserApplicationChanged += (o, e) =>
+            {
+                BindApplications();
+                lstAvailableApplication.SelectedItem = e.Application;
+                lstAvailableApplication.ScrollIntoView(e.Application);
+            };
 
-            if (ApplicationManager.Instance.FinishedLoading) { BindApplications(); }
-            ApplicationManager.Instance.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.Invoke(BindApplications); };
+            ApplicationManager.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.Invoke(BindApplications); };
+
+            if (ApplicationManager.FinishedLoading) BindApplications();
         }
 
 
         ObservableCollection<ActionInfo> ActionInfos = new ObservableCollection<ActionInfo>();
         private ObservableCollection<IApplication> _applications = new ObservableCollection<IApplication>();
-        public static event ApplicationChangedEventHandler ShowEditApplicationFlyout;
         private Task<ActionInfo> _task;
         CancellationTokenSource _cancelTokenSource;
         private bool _selecteNewestItem;
+        private IApplication _cutActionSource;
+        private IAction _actionClipboard;
 
         private void cmdEditAction_Click(object sender, RoutedEventArgs e)
         {
@@ -135,7 +134,9 @@ namespace GestureSign.ControlPanel.MainWindowControls
                         {
                             AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
                             NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
-                            ColorScheme = MetroDialogColorScheme.Accented
+                            ColorScheme = MetroDialogColorScheme.Accented,
+                            AnimateHide = false,
+                            AnimateShow = false
                         }) != MessageDialogResult.Affirmative)
                 return;
 
@@ -188,7 +189,9 @@ namespace GestureSign.ControlPanel.MainWindowControls
                         new MetroDialogSettings()
                         {
                             AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
-                            ColorScheme = MetroDialogColorScheme.Accented
+                            ColorScheme = MetroDialogColorScheme.Accented,
+                            AnimateHide = false,
+                            AnimateShow = false
                         });
                 return;
             }
@@ -203,7 +206,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void BindApplications()
         {
-            CopyActionMenuItem.Items.Clear();
             _applications.Clear();
 
             // Add global actions to global applications group
@@ -214,10 +216,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             foreach (var app in globalApplication.Union(userApplications))
             {
                 _applications.Add(app);
-
-                MenuItem menuItem = new MenuItem() { Header = app.Name };
-                menuItem.Click += CopyActionMenuItem_Click;
-                CopyActionMenuItem.Items.Add(menuItem);
             }
         }
 
@@ -269,7 +267,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             _task = new Task<ActionInfo>(() =>
             {
-                Thread.Sleep(20);
                 ActionInfo actionInfo = null;
                 foreach (Applications.Action currentAction in actions)
                 {
@@ -300,6 +297,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         void RefreshGroup(string gestureName)
         {
+            lstAvailableActions.SelectedItem = null;
             var temp = ActionInfos.Where(ai => ai.GestureName.Equals(gestureName, StringComparison.Ordinal)).ToList();
             foreach (ActionInfo ai in temp)
             {
@@ -308,6 +306,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 ActionInfos.Insert(i, ai);
             }
         }
+
         void SelectAction(ActionInfo actionInfo)
         {
             lstAvailableActions.SelectedItem = actionInfo;
@@ -358,10 +357,36 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void EnableRelevantButtons()
         {
-            bool flag = lstAvailableActions.SelectedItems.Count == 1;
-            cmdEdit.IsEnabled = flag;
-            MoveDownButton.Visibility = MoveUpButton.Visibility = flag ? Visibility.Visible : Visibility.Hidden;
-            cmdDelete.IsEnabled = (lstAvailableActions.SelectedItems.Count > 0);
+            cmdDelete.IsEnabled = cmdEdit.IsEnabled = lstAvailableActions.SelectedItems.Count == 1;
+
+            var selectedActionInfo = (lstAvailableActions.SelectedItem as ActionInfo);
+            if (selectedActionInfo == null)
+                MoveUpButton.IsEnabled = MoveDownButton.IsEnabled = false;
+            else
+            {
+                var actionInfoGroup = ActionInfos.Where(ai => ai.GestureName.Equals(selectedActionInfo.GestureName, StringComparison.Ordinal)).ToList();
+                int index = actionInfoGroup.IndexOf(selectedActionInfo);
+
+                MoveUpButton.IsEnabled = index != 0;
+                MoveDownButton.IsEnabled = index != actionInfoGroup.Count - 1;
+            }
+        }
+
+        private bool SetClipboardAction()
+        {
+            ActionInfo selectedItem = (ActionInfo)lstAvailableActions.SelectedItem;
+            if (selectedItem == null) return false;
+
+            IApplication currentApp = lstAvailableApplication.SelectedItem as IApplication;
+
+            IAction selectedAction = currentApp?.Actions.Find(a => a.Name.Equals(selectedItem.ActionName, StringComparison.Ordinal));
+
+            if (selectedAction != null)
+            {
+                _actionClipboard = selectedAction;
+                return true;
+            }
+            return false;
         }
 
         private void availableGesturesComboBox_Loaded(object sender, RoutedEventArgs e)
@@ -370,12 +395,17 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             if (comboBox != null)
             {
-                dynamic dataContext = comboBox.DataContext;
+                var stackPanel = VisualTreeHelper.GetParent(comboBox);
+                string groupName = (VisualTreeHelper.GetChild(stackPanel, 1) as TextBlock)?.Text;
+                if (groupName == null) return;
 
                 foreach (GestureItem item in comboBox.Items)
                 {
-                    if (item.Name == dataContext.Name)
+                    if (item.Name == groupName)
+                    {
                         comboBox.SelectedIndex = comboBox.Items.IndexOf(item);
+                        return;
+                    }
                 }
             }
         }
@@ -383,6 +413,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void availableGesturesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            e.Handled = true;
             ComboBox availableGesturesComboBox = sender as ComboBox;
             if (availableGesturesComboBox != null &&
                 (!availableGesturesComboBox.IsDropDownOpen || e.AddedItems.Count == 0))
@@ -412,50 +443,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 }
                 else return;
             }
-        }
-
-        private void CopyActionMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            ActionInfo selectedItem = (ActionInfo)lstAvailableActions.SelectedItem;
-            if (selectedItem == null) return;
-            var menuItem = (MenuItem)sender;
-            var targetApplication = ApplicationManager.Instance.Applications.Find(
-                   a => !(a is IgnoredApplication) && a.Name == menuItem.Header.ToString().Trim());
-
-            if (targetApplication.Actions.Exists(a => a.Name == selectedItem.ActionName))
-            {
-                UIHelper.GetParentWindow(this)
-                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExistsTitle"),
-                        String.Format(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExists"),
-                            selectedItem.ActionName, menuItem.Header),
-                        MessageDialogStyle.Affirmative, new MetroDialogSettings()
-                        {
-                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
-                            ColorScheme = MetroDialogColorScheme.Accented
-                        });
-                return;
-            }
-            IApplication currentApp = lstAvailableApplication.SelectedItem as IApplication;
-            if (currentApp == null) return;
-            IAction selectedAction = ApplicationManager.Instance.GetAnyDefinedAction(selectedItem.ActionName, currentApp.Name);
-            if (selectedAction == null) return;
-            Applications.Action newAction = new Applications.Action()
-            {
-                ActionSettings = selectedAction.ActionSettings,
-                GestureName = selectedAction.GestureName,
-                IsEnabled = selectedAction.IsEnabled,
-                Name = selectedAction.Name,
-                PluginClass = selectedAction.PluginClass,
-                PluginFilename = selectedAction.PluginFilename
-            };
-            targetApplication.AddAction(selectedAction);
-
-            if (targetApplication != currentApp)
-            {
-                _selecteNewestItem = true;
-                lstAvailableApplication.SelectedItem = targetApplication;
-            }
-            ApplicationManager.Instance.SaveApplications();
         }
 
         private void ImportActionMenuItem_Click(object sender, RoutedEventArgs e)
@@ -598,11 +585,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
         }
 
-
-        private void ActionContextMenu_Opening(object sender, RoutedEventArgs e)
-        {
-            CopyActionMenuItem.IsEnabled = lstAvailableActions.SelectedIndex != -1;
-        }
         private void lstAvailableApplication_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             UserApplication userApplication = lstAvailableApplication.SelectedItem as UserApplication;
@@ -620,6 +602,72 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 InterceptTouchInputMenuItem.IsChecked = userApplication.InterceptTouchInput;
                 AllowSingleMenuItem.IsChecked = userApplication.AllowSingleStroke;
             }
+
+            PasteActionMenuItem2.IsEnabled = _actionClipboard != null;
+        }
+
+        private void LstAvailableActions_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            PasteActionMenuItem.IsEnabled = _actionClipboard != null;
+            CopyActionMenuItem.IsEnabled = CutActionMenuItem.IsEnabled = lstAvailableActions.SelectedIndex != -1;
+        }
+
+        private void CutActionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SetClipboardAction())
+                _cutActionSource = (IApplication)lstAvailableApplication.SelectedItem;
+        }
+
+        private void CopyActionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            SetClipboardAction();
+            _cutActionSource = null;
+        }
+
+        private void PasteActionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_actionClipboard == null) return;
+
+            var targetApplication = lstAvailableApplication.SelectedItem as IApplication;
+            if (targetApplication == null) return;
+
+            if (targetApplication.Actions.Exists(a => a.Name.Equals(_actionClipboard.Name, StringComparison.Ordinal)))
+            {
+                UIHelper.GetParentWindow(this)
+                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExistsTitle"),
+                        string.Format(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExists"),
+                            _actionClipboard.Name, targetApplication.Name),
+                        MessageDialogStyle.Affirmative, new MetroDialogSettings()
+                        {
+                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
+                            ColorScheme = MetroDialogColorScheme.Accented,
+                            AnimateShow = false,
+                            AnimateHide = false
+                        });
+                return;
+            }
+
+            Applications.Action newAction = new Applications.Action()
+            {
+                ActionSettings = _actionClipboard.ActionSettings,
+                GestureName = _actionClipboard.GestureName,
+                IsEnabled = _actionClipboard.IsEnabled,
+                Name = _actionClipboard.Name,
+                PluginClass = _actionClipboard.PluginClass,
+                PluginFilename = _actionClipboard.PluginFilename
+            };
+            targetApplication.AddAction(newAction);
+
+            if (_cutActionSource != null)
+            {
+                _cutActionSource.RemoveAction(_actionClipboard);
+                _cutActionSource = null;
+                _actionClipboard = null;
+            }
+
+            RefreshActions(false);
+
+            ApplicationManager.Instance.SaveApplications();
         }
 
         private void InterceptTouchInputMenuItem_Click(object sender, RoutedEventArgs e)
@@ -648,16 +696,31 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (e.AddedItems.Count == 0) return;
             RefreshActions(true);
             IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
-            if (selectedApp == null) return;
-            EditAppButton.IsEnabled = selectedApp is UserApplication;
-            EnableAllButton.IsChecked = selectedApp.Actions.All(a => a.IsEnabled);
+            if (selectedApp == null)
+            {
+                ToggleAllActionsCheckBox.IsEnabled = false;
+                return;
+            }
+            ToggleAllActionsCheckBox.IsEnabled = true;
+            ToggleAllActionsCheckBox.IsChecked = selectedApp.Actions.All(a => a.IsEnabled);
+
+            EditAppButton.Visibility = DeleteAppButton.Visibility =
+                selectedApp is UserApplication ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        private void NewApplicationButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            ApplicationDialog applicationDialog = new ApplicationDialog(true);
+            applicationDialog.ShowDialog();
         }
 
         private void EditAppButton_Click(object sender, RoutedEventArgs e)
         {
-            if (ShowEditApplicationFlyout != null && lstAvailableApplication.SelectedItem != null)
-                ShowEditApplicationFlyout(this,
-                    new ApplicationChangedEventArgs(lstAvailableApplication.SelectedItem as IApplication));
+            if (lstAvailableApplication.SelectedItem != null)
+            {
+                ApplicationDialog applicationDialog = new ApplicationDialog(lstAvailableApplication.SelectedItem as IApplication);
+                applicationDialog.ShowDialog();
+            }
         }
 
         private async void DeleteAppButton_Click(object sender, RoutedEventArgs e)
@@ -670,7 +733,9 @@ namespace GestureSign.ControlPanel.MainWindowControls
                         {
                             AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
                             NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
-                            ColorScheme = MetroDialogColorScheme.Accented
+                            ColorScheme = MetroDialogColorScheme.Accented,
+                            AnimateHide = false,
+                            AnimateShow = false
                         }) == MessageDialogResult.Affirmative)
             {
                 ApplicationManager.Instance.RemoveApplication((IApplication)lstAvailableApplication.SelectedItem);
@@ -738,7 +803,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
         }
 
-        private void EnableAllButton_Click(object sender, RoutedEventArgs e)
+        private void ToggleAllActionsCheckBox_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -757,7 +822,5 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
             catch { }
         }
-
-
     }
 }

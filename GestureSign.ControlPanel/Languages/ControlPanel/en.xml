@@ -1,0 +1,418 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Language DisplayName="English" Culture="en" Version="0.13">
+  <Font>Segoe UI, Lucida Sans Unicode, Verdana</Font>
+  <IsRightToLeft>False</IsRightToLeft>
+  <Title>GestureSign Control Panel</Title>
+  <Messages>
+    <CannotFindDaemonMessage>Can not find GestureSignDaemon.exe.Try to redownload or reinstall GestureSign.</CannotFindDaemonMessage>
+    <Error>Error</Error>
+    <CompatWarning>Application detect that it is set the compatibility to run as administrator(right click/properties/compatibility/Run this program as an administrator).
+This may lead to function failure(e.g. Start application at Windows startup).
+
+Continue to run?
+    </CompatWarning>
+    <CompatWarningTitle>Warning</CompatWarningTitle>
+    <ShowLog>Show Log...</ShowLog>
+    <FindNewErrorLog>Find new error log.You can help me track and fix problems by sending these error logs.</FindNewErrorLog>
+  </Messages>
+  <Common>
+    <AllApplications>(All Applications)</AllApplications>
+    <Cancel>Cancel</Cancel>
+    <FileName>File Name</FileName>
+    <No>No</No>
+    <OK>OK</OK>
+    <Save>Save</Save>
+    <WindowClass>Class</WindowClass>
+    <WindowTitle>Title</WindowTitle>
+    <Yes>Yes</Yes>
+    <Overwrite>Overwrite</Overwrite>
+  </Common>
+  <About>
+    <Header>About</Header>
+    <Help>Open the help page</Help>
+    <HelpPageUrl>https://github.com/TransposonY/GestureSign</HelpPageUrl>
+    <Version>Version  </Version>
+    <ReleaseDate>ReleaseDate  </ReleaseDate>
+    <Information>Author:TransposonY
+Translator:TransposonY
+Email:ccfyzh@gmail.com
+Page:https://github.com/TransposonY
+    </Information>
+  </About>
+  <ApplicationDialog>
+    <AddApplication>New Application</AddApplication>
+    <AddIgnoredAppTitle>New Ignored Application</AddIgnoredAppTitle>
+    <AppName>Application Name</AppName>
+    <AppNameWatermark>Please Enter Application Name</AppNameWatermark>
+    <MatchStringWatermark>Please Enter Match String</MatchStringWatermark>
+    <Group>Group</Group>
+    <MatchString>Match String</MatchString>
+    <MatchUsing>Match Using</MatchUsing>
+    <GetMatchString>Get Match String</GetMatchString>
+    <Browse>Browse..</Browse>
+    <UsingRegularExpression>Match as pattern</UsingRegularExpression>
+    <GetMatchStringTip>Drag and drop the crosshair on the target window you would like to control.
+Or click the button below to select the running applications.</GetMatchStringTip>
+    <ShowRunningApplications>Select Running..</ShowRunningApplications>
+    <AllowSingleFinger>Allow Single Stroke</AllowSingleFinger>
+    <InterceptTouchInput>Intercept Touch Input</InterceptTouchInput>
+    <EditApplication>Edit Application</EditApplication>
+    <ExecutableFile>Executable File</ExecutableFile>
+    <Messages>
+      <EmptyStringTitle>No Match String</EmptyStringTitle>
+      <EmptyString>Please provide Match String for the application</EmptyString>
+      <IgnoredAppExistsTitle>Ignored Application Conflict</IgnoredAppExistsTitle>
+      <IgnoredAppExists>The Match String you provided already exists, please provide a different Match String</IgnoredAppExists>
+      <StringConflictTitle>Match String Conflict</StringConflictTitle>
+      <StringConflict>The Match String "{0}" already exists in {1}, please provide a different Match String.</StringConflict>
+      <NoApplicationNameTitle>No Application Name Specified</NoApplicationNameTitle>
+      <NoApplicationName>Please provide a name for the application</NoApplicationName>
+      <AppExistsTitle>Name Already Exists</AppExistsTitle>
+      <AppExists>The application name you provided already exists, please provide a different name</AppExists>
+      <NoMatchStringTitle>No Match String</NoMatchStringTitle>
+      <NoMatchString>Please provide Match String for the application</NoMatchString>
+    </Messages>
+  </ApplicationDialog>
+  <ActionDialog>
+    <AddActionTitle>New Action</AddActionTitle>
+    <EditActionTitle>Edit Action</EditActionTitle>
+    <ActionName>Action Name</ActionName>
+    <ActionNameWatermark>Please enter action name</ActionNameWatermark>
+    <ApplicationFileNameAndTitle>File Name And Title</ApplicationFileNameAndTitle>
+    <ApplicationTools>Drag and drop the crosshair on the window.Or click the right button to select the running applications.</ApplicationTools>
+    <AppName>Application Name</AppName>
+    <Group>Group</Group>
+    <Icon>Icon</Icon>
+    <MatchUsing>Match Using</MatchUsing>
+    <MatchString>Match String</MatchString>
+    <SelectApp>Select Application</SelectApp>
+    <SelectCommand>Select Command</SelectCommand>
+    <SelectGesture>Select Gesture</SelectGesture>
+    <Messages>
+      <ActionExistsTitle>Action Conflict</ActionExistsTitle>
+      <ActionExists>Action "{0}" is already defined for {1}</ActionExists>
+      <ActionExistsInGlobal>Action "{0}" is already defined as a global action</ActionExistsInGlobal>
+      <NoSelectedGestureTitle>No Gesture Specified</NoSelectedGestureTitle>
+      <NoSelectedGesture>Please select a gesture</NoSelectedGesture>
+      <NoActionNameTitle>No Action Name</NoActionNameTitle>
+      <NoActionName>Please provide a name for this action</NoActionName>
+    </Messages>
+  </ActionDialog>
+  <Action>
+    <Header>Action</Header>
+    <ActionFile>Action File</ActionFile>
+    <ActionCount>  ( {0} Actions )</ActionCount>
+    <AppCount>{0} ({1})</AppCount>
+    <DefaultGroupAppCount>(Default) ({0}) </DefaultGroupAppCount>
+    <ImportActions>Import Actions...</ImportActions>
+    <ExportActions>Export Actions</ExportActions>
+    <ExportSpecificActions>Export Enabled Actions in Current Application...</ExportSpecificActions>
+    <CutAction>Cut</CutAction>
+    <CopyAction>Copy</CopyAction>
+    <PasteAction>Paste</PasteAction>
+    <ExportAllActions>Export All Actions...</ExportAllActions>
+    <Messages>
+      <DeleteConfirmTitle>Delete Confirm</DeleteConfirmTitle>
+      <DeleteActionConfirm>Are you sure?</DeleteActionConfirm>
+      <DeleteAppConfirm>Are you sure to delete this application?All actions in this application will be deleted</DeleteAppConfirm>
+      <NoGestureTitle>No Gestures</NoGestureTitle>
+      <NoGesture>You should add at least one gesture before adding an action</NoGesture>
+      <NoAssociationAction>No Association Action</NoAssociationAction>
+      <ReplaceConfirmTitle>Action Conflict</ReplaceConfirmTitle>
+      <ReplaceConfirm>There is already a {0} action in {0}.Replace it?</ReplaceConfirm>
+      <ImportCompleteTitle>Import Complete</ImportCompleteTitle>
+      <ImportComplete>{0} actions have been added</ImportComplete>
+    </Messages>
+  </Action>
+  <Gesture>
+    <Header>Gesture</Header>
+    <GestureFile>Gesture File</GestureFile>
+    <ImportGesture>Import Gestures...</ImportGesture>
+    <ExportGestures>Export Gestures...</ExportGestures>
+    <Messages>
+      <DeleteConfirmTitle>Delete Confirm</DeleteConfirmTitle>
+      <DeleteGestureConfirm>Are you sure?</DeleteGestureConfirm>
+      <AddGestureTitle>Add Gesture</AddGestureTitle>
+      <AddGesture>Enter Training Mode?</AddGesture>
+      <ReplaceConfirmTitle>Gesture Conflict</ReplaceConfirmTitle>
+      <ReplaceConfirm>Gesture {0} is already existing,Replace it?</ReplaceConfirm>
+      <ImportCompleteTitle>Import Complete</ImportCompleteTitle>
+      <ImportComplete>{0} gesture have been added</ImportComplete>
+    </Messages>
+  </Gesture>
+  <EditApplicationFlyout>
+    <EditApplicationTitle>Edit Application</EditApplicationTitle>
+    <AddIgnoredAppTitle>New Ignored</AddIgnoredAppTitle>
+    <ShowRunningApplications>Select Running...</ShowRunningApplications>
+    <AppName>Application Name</AppName>
+    <LocateWindow>Locate Window</LocateWindow>
+    <LocateWindowTip>Drag and drop the crosshair on the target window you would like to control.</LocateWindowTip>
+    <UsingRegularExpression>Match as pattern</UsingRegularExpression>
+    <InterceptTouchInput>Intercept Touch Input</InterceptTouchInput>
+    <AllowSingleFinger>Allow Single</AllowSingleFinger>
+  </EditApplicationFlyout>
+  <RuningApplicationsFlyout>
+    <Title>Runing Applications</Title>
+  </RuningApplicationsFlyout>
+  <GestureDefinition>
+    <Title>Save</Title>
+    <Rename>Rename</Rename>
+    <ExistingGesture>
+      Exist similar gesture
+      Click Overwrite to replace existing gesture
+      Click New Action to replace existing gesture and add new action
+    </ExistingGesture>
+    <GestureNameWatermark>Please enter gesture name</GestureNameWatermark>
+    <NewAction>New Action</NewAction>
+    <Messages>
+      <GestureExistsTitle>Gesture Conflict</GestureExistsTitle>
+      <GestureExists>The Gesture Name you provided already exists, please provide a different Gesture Name</GestureExists>
+    </Messages>
+  </GestureDefinition>
+  <Ignored>
+    <Header>Ignored</Header>
+    <IgnoredAppFile>Ignored Application File</IgnoredAppFile>
+    <ImportIgnoredApps>Import Ignored Application...</ImportIgnoredApps>
+    <ExportIgnoredApps>Export Ignored Application...</ExportIgnoredApps>
+    <Count>  ( {0} )</Count>
+    <Enable>Enable</Enable>
+    <Messages>
+      <ImportCompleteTitle>Import Complete</ImportCompleteTitle>
+      <ImportComplete>{0} Ignored Applications have been added</ImportComplete>
+    </Messages>
+  </Ignored>
+  <Options>
+    <Header>Options</Header>
+    <Language>Language（Restart GestureSign to take effect）</Language>
+    <Opacity>Opacity </Opacity>
+    <VisualFeedbackWidth>Visual Feedback Width {0:0} px</VisualFeedbackWidth>
+    <Off>Off</Off>
+    <PickColor>Pick Color...</PickColor>
+    <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
+    <OpenConfigFolder>Open Configuration Folder</OpenConfigFolder>
+    <ExportLogButton>Export Error Log...</ExportLogButton>
+    <Waiting>Please wait...</Waiting>
+    <Exporting>Exporting error log file...</Exporting>
+    <Sending>Sending error log...</Sending>
+    <SendLogTitle>Send Error Log</SendLogTitle>
+    <SendLog>You can help me track and fix problems by sending these error logs.</SendLog>
+    <SendButton>Send</SendButton>
+    <DontSendButton>Don't Send</DontSendButton>
+    <SendSuccessTitle>Log Send Success</SendSuccessTitle>
+    <SendSuccess>Thank you!The logs were sent successfully!</SendSuccess>
+    <SendFailed>Send Failed</SendFailed>
+    <Retry>Retry</Retry>
+    <OnLabel>On</OnLabel>
+    <OffLabel>Off</OffLabel>
+    <Mail>You can also send mail to ccfyzh@gmail.com</Mail>
+    <WindowsStartup>
+      <Header>Start GestureSign on Windows Startup</Header>
+    </WindowsStartup>
+    <ShowTrayIconSwitch>
+      <Header>Show Tray Icon</Header>
+      <OnLabel>Show</OnLabel>
+      <OffLabel>Hide</OffLabel>
+    </ShowTrayIconSwitch>
+    <ShowBalloonTipSwitch>
+      <Header>Show Tip on Startup</Header>
+    </ShowBalloonTipSwitch>
+    <OrderByLocation>
+      <Header>Stroke Order</Header>
+      <OnLabel>Left to Right</OnLabel>
+      <OffLabel>In Contact Chronological Order</OffLabel>
+    </OrderByLocation>
+    <Messages>
+      <LoadSettingErrorTitle>Error</LoadSettingErrorTitle>
+      <LoadSettingError>Can not load setting</LoadSettingError>
+    </Messages>
+  </Options>
+  <CorePlugins>
+    <ActivateWindow>
+      <Name>Activate Window</Name>
+      <Description>Activate the specified window</Description>
+      <ClassName>Window Class Name</ClassName>
+      <WindowTitle>Window Title</WindowTitle>
+      <UsingRegularExpression>Match as pattern</UsingRegularExpression>
+      <Timeout>Wait for window to exist</Timeout>
+      <Millisecond>milliseconds</Millisecond>
+    </ActivateWindow>
+    <Delay>
+      <Name>Delay</Name>
+      <Description>Delay for {0} milliseconds</Description>
+      <Millisecond>milliseconds</Millisecond>
+    </Delay>
+    <HotKey>
+      <Name>Send Hot Key</Name>
+      <Category>Keyboard</Category>
+      <Description>Send a hot key combination to application</Description>
+      <SpecificDescription>Send the hot key ({0})</SpecificDescription>
+      <Tip>Hot Key(Use keyboard to enter)</Tip>
+      <Reset>Reset</Reset>
+      <AddExtraKey>(Click to add a extra key)</AddExtraKey>
+      <ExtraKeys>
+        <BrowserBack>Browser Back key</BrowserBack>
+        <BrowserForward>Browser Forward key</BrowserForward>
+        <BrowserHome>Browser Start and Home key</BrowserHome>
+        <BrowserRefresh>Browser Refresh key</BrowserRefresh>
+        <BrowserSearch>Browser Search key</BrowserSearch>
+        <BrowserStop>Browser Stop key</BrowserStop>
+        <MediaNextTrack>Next Track key</MediaNextTrack>
+        <MediaPlayPause>Play/Pause Media key</MediaPlayPause>
+        <MediaPreviousTrack>Previous Track key</MediaPreviousTrack>
+        <MediaStop>Stop Media key</MediaStop>
+        <VolumeDown>Volume Down key</VolumeDown>
+        <VolumeMute>Volume Mute key</VolumeMute>
+        <VolumeUp>Volume Up key</VolumeUp>
+      </ExtraKeys>
+    </HotKey>
+    <KeyDownKeyUp>
+      <Name>Key Down/Up</Name>
+      <Category>Keyboard</Category>
+      <Description>
+        <KeyDown>Press ({0})</KeyDown>
+        <KeyUp>Release ({0})</KeyUp>
+      </Description>
+      <KeyDown>Key Down</KeyDown>
+      <KeyUp>Key Up</KeyUp>
+      <Tip>Use keyboard to enter</Tip>
+      <Reset>Reset</Reset>
+    </KeyDownKeyUp>
+    <MouseActions>
+      <Name>Mouse Actions</Name>
+      <Category>Mouse</Category>
+      <MouseActions>
+        <LeftButtonClick>Left Button Click</LeftButtonClick>
+        <LeftButtonDoubleClick>Left Button Double Click</LeftButtonDoubleClick>
+        <LeftButtonDown>Left Button Down</LeftButtonDown>
+        <LeftButtonUp>Left Button Up</LeftButtonUp>
+        <MiddleButtonClick>Middle Button Click</MiddleButtonClick>
+        <MiddleButtonDoubleClick>Middle Button Double Click</MiddleButtonDoubleClick>
+        <MiddleButtonDown>Middle Button Down</MiddleButtonDown>
+        <MiddleButtonUp>Middle Button Up</MiddleButtonUp>
+        <RightButtonClick>Right Button Click</RightButtonClick>
+        <RightButtonDoubleClick>Right Button Double Click</RightButtonDoubleClick>
+        <RightButtonDown>Right Button Down</RightButtonDown>
+        <RightButtonUp>Right Button Up</RightButtonUp>
+        <VerticalScroll>Vertical Scroll</VerticalScroll>
+        <HorizontalScroll>Horizontal Scroll</HorizontalScroll>
+        <MoveMouseTo>Move Mouse To Specified Location</MoveMouseTo>
+        <MoveMouseBy>Move Mouse By Specified Distance</MoveMouseBy>
+      </MouseActions>
+      <ClickPositions>
+        <FirstDown>First Finger Down</FirstDown>
+        <FirstUp>First Finger Up</FirstUp>
+        <LastDown>Last Finger Down</LastDown>
+        <LastUp>Last Finger Up</LastUp>
+        <Original>Original Position</Original>
+      </ClickPositions>
+      <Description>
+        <Right>Right</Right>
+        <Left>Left</Left>
+        <Up>Up</Up>
+        <Down>Down</Down>
+        <HorizontalScroll>Horizontal Scroll {0} {1} Clicks</HorizontalScroll>
+        <VerticalScroll>Vertical Scroll {0} {1} Clicks</VerticalScroll>
+        <MoveMouseBy>Move Mouse By</MoveMouseBy>
+        <MoveMouseTo>Move Mouse To</MoveMouseTo>
+      </Description>
+      <SelectAction>Select Mouse Action</SelectAction>
+      <ClickPosition>Click Position</ClickPosition>
+      <ReferencePosition>Reference Position</ReferencePosition>
+      <ScrollAmountTip>A Positive value to the Right/Up.A Negative value to the Left/Down.</ScrollAmountTip>
+    </MouseActions>
+    <RunCommand>
+      <Name>Command or Program</Name>
+      <Description>Runs a specified command or program</Description>
+      <Category>Run</Category>
+      <Command>Command</Command>
+      <Browse>Browse...</Browse>
+      <ShowCMD>Show CMD Window</ShowCMD>
+    </RunCommand>
+    <ScreenBrightness>
+      <Name>Screen Brightness</Name>
+      <Category>System</Category>
+      <IncreaseBrightness>Increase Brightness </IncreaseBrightness>
+      <DecreaseBrightness>Decrease Brightness </DecreaseBrightness>
+    </ScreenBrightness>
+    <SendKeystrokes>
+      <Name>Send Keystrokes</Name>
+      <Category>Keyboard</Category>
+      <Description>Send keystrokes to application</Description>
+      <EscapesString>Escapes the literal string</EscapesString>
+      <Tip>Standard SendKeys syntax applies</Tip>
+      <UseSendInput>Use SendInput</UseSendInput>
+    </SendKeystrokes>
+    <TouchKeyboard>
+      <Name>Touch Keyboard</Name>
+      <Category>Keyboard</Category>
+      <Show>Show Keyboard</Show>
+      <Hide>Hide Keyboard</Hide>
+      <Tip>Tip:To show the Touch Keyboard Button in taskbar can accelerate the pop-up speed in windows 8.</Tip>
+    </TouchKeyboard>
+    <Volume>
+      <Name>Adjust Volume</Name>
+      <Category>System</Category>
+      <Increase>Increase the system volume </Increase>
+      <Decrease>Decrease the system volume </Decrease>
+      <Mute>Toggle the system mute</Mute>
+    </Volume>
+    <DefaultBrowser>
+      <Name>Open Web Browser</Name>
+      <Description>Open the default web browser</Description>
+      <Category>Internet</Category>
+    </DefaultBrowser>
+    <ToggleDisableGestures>
+      <Name>Disable/Enable GestureSign</Name>
+      <Description>Disables or enable GestureSign from capturing gestures</Description>
+    </ToggleDisableGestures>
+    <MaximizeRestore>
+      <Name>Maximize or Restore</Name>
+      <Description>Maximize or restore current window</Description>
+    </MaximizeRestore>
+    <Minimize>
+      <Name>Minimize</Name>
+      <Description>Minimize current window</Description>
+    </Minimize>
+    <NextApplication>
+      <Name>Next Window</Name>
+      <Description>Switches to the next window (Same as Alt + Tab)</Description>
+    </NextApplication>
+    <PreviousApplication>
+      <Name>Previous Window</Name>
+      <Description>Switches to the previous window (Same as Shift + Alt + Tab)</Description>
+    </PreviousApplication>
+    <TemporarilyDisable>
+      <Name>Temporarily Disable</Name>
+      <Description>Disables GestureSign for the next contact only</Description>
+    </TemporarilyDisable>
+    <SendMessage>
+      <Name>Send Message</Name>
+      <Category>Message</Category>
+      <DescriptionTemplate>{0} to {1}</DescriptionTemplate>
+      <TargetWindow>Target Window</TargetWindow>
+      <SpecificWindow>Specific Window</SpecificWindow>
+      <CurrentWindow>Current Window</CurrentWindow>
+      <WindowClass>Window Class</WindowClass>
+      <WindowTitle>Title</WindowTitle>
+      <RegEx>Match as pattern</RegEx>
+      <MessageContent>Message</MessageContent>
+      <HotKey>Send Hot Key</HotKey>
+      <Custom>Custom</Custom>
+      <Method>Method</Method>
+      <PostMessage>PostMessage</PostMessage>
+      <SendMessage>SendMessage</SendMessage>
+      <MessageID>Message ID</MessageID>
+    </SendMessage>
+    <LaunchApp>
+      <Name>Launch Windows Store App</Name>
+      <Description>Launch {0}</Description>
+      <Category>Run</Category>
+      <Tip>Please select a Store App.</Tip>
+      <Loading>Loading application list...</Loading>
+    </LaunchApp>
+    <ToggleWindowTopmost>
+      <Name>Toggle Topmost</Name>
+      <Description>Toggle the window topmost flag.</Description>
+    </ToggleWindowTopmost>
+  </CorePlugins>
+</Language>

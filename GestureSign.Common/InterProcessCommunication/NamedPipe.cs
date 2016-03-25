@@ -19,8 +19,11 @@ namespace GestureSign.Common.InterProcessCommunication
         [return: MarshalAs(UnmanagedType.Bool)]
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool WaitNamedPipe(string name, int timeout);
-        static NamedPipeServerStream pipeServer;
-        static readonly NamedPipe instance = new NamedPipe();
+
+        private static NamedPipeServerStream _pipeServer;
+        private static NamedPipeServerStream _persistentPipeServerStream;
+        private static readonly NamedPipe instance = new NamedPipe();
+
         public static NamedPipe Instance
         {
             get
@@ -28,9 +31,10 @@ namespace GestureSign.Common.InterProcessCommunication
                 return instance;
             }
         }
+
         public void RunNamedPipeServer(string pipeName, IMessageProcessor messageProcessor)
         {
-            pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Message,
+            _pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Message,
                 PipeOptions.Asynchronous);
 
             AsyncCallback ac = null;
@@ -45,9 +49,30 @@ namespace GestureSign.Common.InterProcessCommunication
                 server.BeginWaitForConnection(ac, server);
 
             };
-            pipeServer.BeginWaitForConnection(ac, pipeServer);
+            _pipeServer.BeginWaitForConnection(ac, _pipeServer);
         }
 
+        public void RunPersistentPipeConnection(string pipeName, IMessageProcessor messageProcessor)
+        {
+            _persistentPipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+
+            AsyncCallback ac = null;
+            ac = o =>
+            {
+                NamedPipeServerStream server = (NamedPipeServerStream)o.AsyncState;
+                server.EndWaitForConnection(o);
+
+                while (true)
+                {
+                    if (!messageProcessor.ProcessMessages(server)) break;
+                }
+
+                server.Dispose();
+                server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                server.BeginWaitForConnection(ac, server);
+            };
+            _persistentPipeServerStream.BeginWaitForConnection(ac, _persistentPipeServerStream);
+        }
 
         public static Task<bool> SendMessageAsync(object message, string pipeName)
         {
@@ -59,14 +84,13 @@ namespace GestureSign.Common.InterProcessCommunication
                        {
                            using (MemoryStream ms = new MemoryStream())
                            {
-
                                int i = 0;
-                               for (; i != 10; i++)
+                               for (; i != 20; i++)
                                {
                                    if (!NamedPipeDoesNotExist(pipeName)) break;
-                                   Thread.Sleep(30);
+                                   Thread.Sleep(50);
                                }
-                               if (i == 10) return false;
+                               if (i == 20) return false;
 
                                pipeClient.Connect(10);
 
@@ -91,7 +115,8 @@ namespace GestureSign.Common.InterProcessCommunication
                    }
                }));
         }
-        static private bool NamedPipeDoesNotExist(string pipeName)
+
+        public static bool NamedPipeDoesNotExist(string pipeName)
         {
             try
             {

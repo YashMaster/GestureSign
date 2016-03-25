@@ -38,6 +38,7 @@
     <WarningLevel>2</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -49,6 +50,7 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'uiAccessRelease|AnyCPU'">
@@ -75,14 +77,20 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Surface\DiBitmap.cs" />
-    <Compile Include="Input\HidReports.cs" />
-    <Compile Include="Input\HidDeclarations.cs" />
-    <Compile Include="Input\MessageWindow.cs">
+    <Compile Include="Input\InputProvider.cs" />
+    <Compile Include="Input\TouchInputProcessor.cs" />
+    <Compile Include="Native\NativeMethods.cs" />
+    <Compile Include="Native\PointerInfo.cs" />
+    <Compile Include="PointerInputTargetWindow.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Surface\DiBitmap.cs" />
     <Compile Include="MessageProcessor.cs" />
-    <Compile Include="Native.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Input\TouchCapture.cs" />
@@ -93,14 +101,11 @@
     <Compile Include="TrayManager.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
+    <None Include="Properties\app.common.manifest" />
+    <None Include="Properties\app.uiAccessRelease.manifest" />
     <None Include="Properties\app.manifest" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -147,15 +152,29 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="LanguageData\en.xml" />
-    <Content Include="LanguageData\zh.xml" />
+    <Content Include="Languages\Daemon\en.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Languages\Daemon\zh.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Resources\normal_daemon.ico" />
     <None Include="Resources\add.ico" />
     <None Include="Resources\stop.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>IF "$(ConfigurationName)"=="uiAccessRelease" "$(SolutionDir)signtool.exe" sign /v /f "$(SolutionDir)TransposonYSPC.pfx" /t "http://timestamp.verisign.com/scripts/timstamp.dll" $(TargetFileName)</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>del "$(ProjectDir)\Properties\app.manifest"
+
+if "$(ConfigurationName)"=="uiAccessRelease" (
+  copy "$(ProjectDir)\Properties\app.uiAccessRelease.manifest" "$(ProjectDir)\Properties\app.manifest"
+) else (
+  copy "$(ProjectDir)\Properties\app.common.manifest" "$(ProjectDir)\Properties\app.manifest"
+)</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

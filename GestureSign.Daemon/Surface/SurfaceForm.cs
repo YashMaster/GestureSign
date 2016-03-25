@@ -9,6 +9,7 @@ using GestureSign.Common;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Input;
 using GestureSign.Daemon.Input;
+using GestureSign.Daemon.Native;
 using ManagedWinapi.Windows;
 using Microsoft.Win32;
 
@@ -21,13 +22,14 @@ namespace GestureSign.Daemon.Surface
         Pen _drawingPen;
         private Pen _shadowPen;
         private Pen _dirtyMarkerPen;
-        int[] _lastStroke = null;
+        int[] _lastStroke;
         Size _screenOffset = default(Size);
         DiBitmap _bitmap;
         private GraphicsPath _graphicsPath = new GraphicsPath();
         private GraphicsPath _dirtyGraphicsPath = new GraphicsPath();
 
         private float _screenDpi;
+        private bool _settingsChanged;
 
         private const Int32 ULW_ALPHA = 0x00000002;
 
@@ -45,10 +47,10 @@ namespace GestureSign.Daemon.Surface
             TouchCapture.Instance.CaptureEnded += MouseCapture_CaptureEnded;
             TouchCapture.Instance.CaptureCanceled += MouseCapture_CaptureCanceled;
             TouchCapture.Instance.CaptureStarted += Instance_CaptureStarted;
-            AppConfig.ConfigChanged += (o, e) => { InitializeForm(); };
+            AppConfig.ConfigChanged += (o, e) => { ResetSurface(); };
             // Respond to system event changes by reinitializing the form
-            SystemEvents.DisplaySettingsChanged += (o, e) => { InitializeForm(); };
-            SystemEvents.UserPreferenceChanged += (o, e) => { InitializeForm(); };
+            SystemEvents.DisplaySettingsChanged += (o, e) => { ResetSurface(); };
+            SystemEvents.UserPreferenceChanged += (o, e) => { ResetSurface(); };
             //this.SetStyle(ControlStyles.DoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
             //this.UpdateStyles();
         }
@@ -60,9 +62,18 @@ namespace GestureSign.Daemon.Surface
 
         protected void MouseCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
         {
-            if (AppConfig.VisualFeedbackWidth > 0 && e.State == CaptureState.Capturing &&
+            if (e.Mode != CaptureMode.UserDisabled &&
+                e.State == CaptureState.Capturing &&
+                AppConfig.VisualFeedbackWidth > 0 &&
                 !(e.Points.Count == 1 && e.Points.First().Count == 1))
+            {
+                if (_bitmap == null || _lastStroke == null)
+                {
+                    ClearSurfaces();
+                    _bitmap = new DiBitmap(Screen.PrimaryScreen.Bounds.Size);
+                }
                 DrawSegments(e.Points);
+            }
         }
 
         protected void MouseCapture_CaptureEnded(object sender, EventArgs e)
@@ -79,8 +90,15 @@ namespace GestureSign.Daemon.Surface
 
         private void Instance_CaptureStarted(object sender, PointsCapturedEventArgs e)
         {
+            if (AppConfig.VisualFeedbackWidth <= 0 || e.Mode == CaptureMode.UserDisabled) return;
+
+            if (_settingsChanged)
+            {
+                _settingsChanged = false;
+                InitializeForm();
+            }
+
             ClearSurfaces();
-            _bitmap = new DiBitmap(Screen.PrimaryScreen.Bounds.Size);
         }
 
         #endregion
@@ -147,6 +165,20 @@ namespace GestureSign.Daemon.Surface
 
         #region Private Methods
 
+        private void ResetSurface()
+        {
+            if (_lastStroke == null)
+            {
+                if (InvokeRequired) Invoke(new Action(InitializeForm));
+                else InitializeForm();
+            }
+            else
+            {
+                if (InvokeRequired) Invoke(new Action(() => _settingsChanged = true));
+                else _settingsChanged = true;
+            }
+        }
+
         private void InitializeForm()
         {
             // Set basic variables
@@ -170,7 +202,7 @@ namespace GestureSign.Daemon.Surface
             Height = rOutput.Height;
             // Store offset in class field
             _screenOffset = new Size(Location);
-            _screenDpi = Native.GetScreenDpi() / 96f;
+            _screenDpi = NativeMethods.GetScreenDpi() / 96f;
 
             InitializePen();
         }
@@ -234,33 +266,33 @@ namespace GestureSign.Daemon.Surface
         {
             // IntPtr screenDc = Win32.GDI32.GetDC(IntPtr.Zero);
 
-            IntPtr memDc = Native.CreateCompatibleDC(IntPtr.Zero);
+            IntPtr memDc = NativeMethods.CreateCompatibleDC(IntPtr.Zero);
             IntPtr oldBitmap = IntPtr.Zero;
 
             try
             {
-                oldBitmap = Native.SelectObject(memDc, hBitmap);
+                oldBitmap = NativeMethods.SelectObject(memDc, hBitmap);
 
-                var winSize = new Native.Size(newWindowBounds.Width, newWindowBounds.Height);
-                var winPos = new Native.Point(newWindowBounds.X, newWindowBounds.Y);
+                var winSize = new NativeMethods.Size(newWindowBounds.Width, newWindowBounds.Height);
+                var winPos = new NativeMethods.Point(newWindowBounds.X, newWindowBounds.Y);
 
-                var drawBmpAt = new Native.Point(drawAt.X, drawAt.Y);
-                var blend = new Native.BLENDFUNCTION { BlendOp = AC_SRC_OVER, BlendFlags = 0, SourceConstantAlpha = opacity, AlphaFormat = AC_SRC_ALPHA };
+                var drawBmpAt = new NativeMethods.Point(drawAt.X, drawAt.Y);
+                var blend = new NativeMethods.BLENDFUNCTION { BlendOp = AC_SRC_OVER, BlendFlags = 0, SourceConstantAlpha = opacity, AlphaFormat = AC_SRC_ALPHA };
 
-                var updateInfo = new Native.UPDATELAYEREDWINDOWINFO
+                var updateInfo = new NativeMethods.UPDATELAYEREDWINDOWINFO
                 {
-                    cbSize = (uint)Marshal.SizeOf(typeof(Native.UPDATELAYEREDWINDOWINFO)),
+                    cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.UPDATELAYEREDWINDOWINFO)),
                     dwFlags = ULW_ALPHA,
                     hdcDst = IntPtr.Zero,
                     hdcSrc = memDc
                 };
-                //Native.GetDC(IntPtr.Zero);//IntPtr.Zero; //ScreenDC
+                //NativeMethods.GetDC(IntPtr.Zero);//IntPtr.Zero; //ScreenDC
 
                 // dirtyRect.X -= _bounds.X;
                 // dirtyRect.Y -= _bounds.Y;
 
                 //dirtyRect.Offset(-_bounds.X, -_bounds.Y);
-                var dirRect = new Native.RECT(dirtyRect.X, dirtyRect.Y, dirtyRect.Right, dirtyRect.Bottom);
+                var dirRect = new NativeMethods.RECT(dirtyRect.X, dirtyRect.Y, dirtyRect.Right, dirtyRect.Bottom);
 
                 unsafe
                 {
@@ -271,10 +303,10 @@ namespace GestureSign.Daemon.Surface
                     updateInfo.prcDirty = &dirRect;
                 }
 
-                Native.UpdateLayeredWindowIndirect(Handle, ref updateInfo);
-                // Debug.Assert(Native.GetLastError() == 0);
+                NativeMethods.UpdateLayeredWindowIndirect(Handle, ref updateInfo);
+                // Debug.Assert(NativeMethods.GetLastError() == 0);
 
-                //Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref topPos, ref size, memDc, ref pointSource, 0, ref blend, GDI32.ULW_ALPHA);
+                //NativeMethods.UpdateLayeredWindow(Handle, IntPtr.Zero, ref topPos, ref size, memDc, ref pointSource, 0, ref blend, GDI32.ULW_ALPHA);
 
             }
             finally
@@ -283,11 +315,11 @@ namespace GestureSign.Daemon.Surface
                 //GDI32.ReleaseDC(IntPtr.Zero, screenDc);
                 if (hBitmap != IntPtr.Zero)
                 {
-                    Native.SelectObject(memDc, oldBitmap);
+                    NativeMethods.SelectObject(memDc, oldBitmap);
                     //Windows.DeleteObject(hBitmap); // The documentation says that we have to use the Windows.DeleteObject... but since there is no such method I use the normal DeleteObject from Win32 GDI and it's working fine without any resource leak.
                     //Win32.DeleteObject(hBitmap);
                 }
-                Native.DeleteDC(memDc);
+                NativeMethods.DeleteDC(memDc);
             }
         }
 

@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Configuration;
-
+using System.Globalization;
 using System.Threading;
 using System.IO;
+using GestureSign.Common.InterProcessCommunication;
 
 namespace GestureSign.Common.Configuration
 {
@@ -17,8 +18,6 @@ namespace GestureSign.Common.Configuration
         public static event EventHandler ConfigChanged;
 
         private static readonly string Path;
-
-        private static readonly FileSystemWatcher Fsw;
 
         private static readonly ExeConfigurationFileMap ExeMap;
 
@@ -56,17 +55,7 @@ namespace GestureSign.Common.Configuration
                 SetValue("MinimumPointDistance", value);
             }
         }
-        public static int ReversalAngleThreshold
-        {
-            get
-            {
-                return (int)GetValue("ReversalAngleThreshold", 160);
-            }
-            set
-            {
-                SetValue("ReversalAngleThreshold", value);
-            }
-        }
+
         public static double Opacity
         {
             get
@@ -79,8 +68,6 @@ namespace GestureSign.Common.Configuration
             }
         }
 
-        public static bool Teaching { get; set; }
-
         public static bool IsOrderByLocation
         {
             get
@@ -90,17 +77,6 @@ namespace GestureSign.Common.Configuration
             set
             {
                 SetValue("IsOrderByLocation", value);
-            }
-        }
-        public static bool InterceptTouchInput
-        {
-            get
-            {
-                return (bool)GetValue("InterceptTouchInput", true);
-            }
-            set
-            {
-                SetValue("InterceptTouchInput", value);
             }
         }
 
@@ -139,6 +115,30 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static bool SendErrorReport
+        {
+            get
+            {
+                return (bool)GetValue("SendErrorReport", true);
+            }
+            set
+            {
+                SetValue("SendErrorReport", value);
+            }
+        }
+
+        public static DateTime LastErrorTime
+        {
+            get
+            {
+                return GetValue("LastErrorTime", DateTime.MinValue);
+            }
+            set
+            {
+                SetValue("LastErrorTime", value);
+            }
+        }
+
         static AppConfig()
         {
 #if uiAccess
@@ -156,26 +156,11 @@ namespace GestureSign.Common.Configuration
                 RoamingUserConfigFilename = Path,
                 LocalUserConfigFilename = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"GestureSign\GestureSign.config")
             };
-            Teaching = false;
+
             _config = ConfigurationManager.OpenMappedExeConfiguration(ExeMap, ConfigurationUserLevel.None);
             Timer = new Timer(SaveFile, null, Timeout.Infinite, Timeout.Infinite);
 
-            Fsw = new FileSystemWatcher(configFolder)
-            {
-                Filter = "*.config",
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime,
-                IncludeSubdirectories = false
-            };
-            Fsw.Created += fsw_Changed;
-            Fsw.Changed += fsw_Changed;
         }
-        static void fsw_Changed(object sender, FileSystemEventArgs e)
-        {
-            if (e.Name.Equals("gesturesign.config", StringComparison.CurrentCultureIgnoreCase))
-                Reload();
-        }
-        public static void ToggleWatcher()
-        { Fsw.EnableRaisingEvents = !Fsw.EnableRaisingEvents; }
 
         public static void Reload()
         {
@@ -199,8 +184,6 @@ namespace GestureSign.Common.Configuration
 
         private static void SaveFile(object state)
         {
-            bool flag = Fsw.EnableRaisingEvents;
-            if (flag) Fsw.EnableRaisingEvents = false;
             try
             {
                 FileManager.WaitFile(Path);
@@ -216,9 +199,10 @@ namespace GestureSign.Common.Configuration
             {
                 Logging.LogException(e);
             }
-            Fsw.EnableRaisingEvents = flag;
             // Force a reload of the changed section.    
             ConfigurationManager.RefreshSection("appSettings");
+
+            NamedPipe.SendMessageAsync("LoadConfiguration", "GestureSignDaemon");
         }
 
         private static object GetValue(string key, object defaultValue)
@@ -244,6 +228,25 @@ namespace GestureSign.Common.Configuration
             }
             else return defaultValue;
         }
+
+        private static DateTime GetValue(string key, DateTime defaultValue)
+        {
+            var setting = _config.AppSettings.Settings[key];
+            if (setting != null)
+            {
+                try
+                {
+                    return DateTime.Parse(setting.Value);
+                }
+                catch
+                {
+                    SetValue(key, defaultValue);
+                    return defaultValue;
+                }
+            }
+            else return defaultValue;
+        }
+
         private static void SetValue(string key, object value)
         {
             if (_config.AppSettings.Settings[key] != null)
@@ -264,6 +267,18 @@ namespace GestureSign.Common.Configuration
             else
             {
                 _config.AppSettings.Settings.Add(key, System.Drawing.ColorTranslator.ToHtml(value));
+            }
+        }
+
+        private static void SetValue(string key, DateTime value)
+        {
+            if (_config.AppSettings.Settings[key] != null)
+            {
+                _config.AppSettings.Settings[key].Value = value.ToString(CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                _config.AppSettings.Settings.Add(key, value.ToString(CultureInfo.InvariantCulture));
             }
         }
     }

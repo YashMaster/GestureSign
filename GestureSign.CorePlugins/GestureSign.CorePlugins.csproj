@@ -23,7 +23,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
+    <OutputPath>..\GestureSign.ControlPanel\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -36,7 +36,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\GestureSign.ControlPanel\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -47,7 +47,7 @@
     <StartupObject />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'uiAccessRelease|AnyCPU'">
-    <OutputPath>bin\uiAccessRelease\</OutputPath>
+    <OutputPath>..\GestureSign.ControlPanel\bin\uiAccessRelease\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
@@ -68,7 +68,7 @@
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
     <Reference Include="Windows">
-      <HintPath>C:\Program Files (x86)\Windows Kits\8.1\References\CommonConfiguration\Neutral\Windows.winmd</HintPath>
+      <HintPath>C:\Program Files (x86)\Windows Kits\8.1\References\CommonConfiguration\Neutral\Annotated\Windows.winmd</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="WindowsBase" />
@@ -104,7 +104,7 @@
       <DependentUpon>SendMessageView.xaml</DependentUpon>
     </Compile>
     <Compile Include="TemporarilyDisable.cs" />
-    <Compile Include="DisableGestures.cs" />
+    <Compile Include="ToggleDisableGestures.cs" />
     <Compile Include="HotKey\HotKey.xaml.cs">
       <DependentUpon>HotKey.xaml</DependentUpon>
     </Compile>
@@ -114,6 +114,7 @@
     <Compile Include="HotKey\HotKeySettings.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ToggleWindowTopmost.cs" />
     <Compile Include="TouchKeyboard\TouchKeyboard.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>

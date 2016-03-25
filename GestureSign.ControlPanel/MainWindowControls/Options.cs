@@ -1,17 +1,22 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Security.Principal;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
+using GestureSign.Common;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.InterProcessCommunication;
 using GestureSign.Common.Localization;
+using GestureSign.ControlPanel.Common;
 using IWshRuntimeLibrary;
 using ManagedWinapi.Windows;
 using Microsoft.Win32.TaskScheduler;
+using MahApps.Metro.Controls.Dialogs;
 using Application = System.Windows.Application;
 using Color = System.Drawing.Color;
 using File = System.IO.File;
@@ -49,14 +54,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 chkOrderByLocation.IsChecked = AppConfig.IsOrderByLocation;
                 ShowBalloonTipSwitch.IsChecked = AppConfig.ShowBalloonTip;
                 ShowTrayIconSwitch.IsChecked = AppConfig.ShowTrayIcon;
-                if (AppConfig.UiAccess)
-                {
-                    chkInterceptTouchInput.IsChecked = AppConfig.InterceptTouchInput;
-                }
-                else
-                {
-                    chkInterceptTouchInput.IsChecked = chkInterceptTouchInput.IsEnabled = false;
-                }
+                SendLogToggleSwitch.IsChecked = AppConfig.SendErrorReport;
 
                 LanguageComboBox.ItemsSource = LocalizationProvider.Instance.GetLanguageList("ControlPanel");
                 LanguageComboBox.SelectedValue = AppConfig.CultureName;
@@ -75,7 +73,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             //Input.MouseCapture.Instance.DisableMouseCapture();
 
             UpdateVisualFeedbackExample();
-            DisableIncompatibleControls();
         }
 
         private void btnPickColor_Click(object sender, RoutedEventArgs e)
@@ -112,7 +109,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             // Change opacity display text with new value
-            OpacityText.Text = String.Format(LocalizationProvider.Instance.GetTextValue("Options.Opacity"), GetAlphaPercentage(OpacitySlider.Value));
+            OpacityText.Text = LocalizationProvider.Instance.GetTextValue("Options.Opacity") + GetAlphaPercentage(OpacitySlider.Value) + "%";
             AppConfig.Opacity = OpacitySlider.Value;
 
             AppConfig.Save();
@@ -178,11 +175,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private int GetAlphaPercentage(double Alpha)
         {
             return (int)Math.Round(Alpha * 100d);
-        }
-
-        private void DisableIncompatibleControls()
-        {
-            OpacitySlider.IsEnabled = DesktopWindowManager.IsCompositionEnabled();
         }
 
         private void CreateLnk(string lnkPath)
@@ -295,18 +287,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.Save();
         }
 
-        private void chkInterceptTouchInput_Checked(object sender, RoutedEventArgs e)
-        {
-            AppConfig.InterceptTouchInput = true;
-            AppConfig.Save();
-        }
-
-        private void chkInterceptTouchInput_Unchecked(object sender, RoutedEventArgs e)
-        {
-            AppConfig.InterceptTouchInput = false;
-            AppConfig.Save();
-        }
-
         private void btnOpenApplicationData_Click(object sender, RoutedEventArgs e)
         {
             Process.Start("explorer.exe", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GestureSign"));
@@ -338,6 +318,18 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.Save();
         }
 
+        private void SendLogToggleSwitch_Checked(object sender, RoutedEventArgs e)
+        {
+            AppConfig.SendErrorReport = true;
+            AppConfig.Save();
+        }
+
+        private void SendLogToggleSwitch_Unchecked(object sender, RoutedEventArgs e)
+        {
+            AppConfig.SendErrorReport = false;
+            AppConfig.Save();
+        }
+
         private void LanguageComboBox_DropDownClosed(object sender, EventArgs e)
         {
             if (LanguageComboBox.SelectedValue == null) return;
@@ -345,9 +337,81 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.Save();
         }
 
-        private void ShowLogButton_Click(object sender, RoutedEventArgs e)
+        private async void ExportLogButton_Click(object sender, RoutedEventArgs e)
         {
-            Process.Start("notepad.exe", Path.Combine(Path.GetTempPath(), "GestureSign.log"));
+            string logPath = Path.Combine(Path.GetTempPath(), "GestureSign" + DateTime.Now.ToString("yyyyMMddhhmmss") + ".log");
+
+            StringBuilder result = new StringBuilder();
+
+            var controller =
+                await
+                    UIHelper.GetParentWindow(this)
+                        .ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("Options.Waiting"),
+                            LocalizationProvider.Instance.GetTextValue("Options.Exporting"));
+            controller.SetIndeterminate();
+
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                ErrorReport.OutputLog(ref result);
+
+                File.WriteAllText(logPath, result.ToString());
+
+            });
+            await controller.CloseAsync();
+
+            Process.Start("notepad.exe", logPath);
+
+            var dialogResult =
+                await
+                    UIHelper.GetParentWindow(this)
+                        .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendLogTitle"),
+                            LocalizationProvider.Instance.GetTextValue("Options.SendLog"),
+                            MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
+                            {
+                                AnimateHide = false,
+                                AnimateShow = false,
+                                AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.SendButton"),
+                                NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.DontSendButton")
+                            });
+
+            while (dialogResult == MessageDialogResult.Affirmative)
+            {
+                controller = await UIHelper.GetParentWindow(this)
+                    .ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("Options.Waiting"),
+                        LocalizationProvider.Instance.GetTextValue("Options.Sending"));
+                controller.SetIndeterminate();
+
+                string exceptionMessage = await System.Threading.Tasks.Task.Run(() => ErrorReport.SendMail("Error Log", result.ToString()));
+
+                await controller.CloseAsync();
+
+                if (exceptionMessage == null)
+                {
+                    await UIHelper.GetParentWindow(this)
+                        .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendSuccessTitle"),
+                            LocalizationProvider.Instance.GetTextValue("Options.SendSuccess"), settings: new MetroDialogSettings()
+                            {
+                                AnimateHide = false,
+                                AnimateShow = false,
+                            });
+                    break;
+                }
+                else
+                {
+                    dialogResult = await
+                        UIHelper.GetParentWindow(this)
+                            .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendFailed"),
+                                LocalizationProvider.Instance.GetTextValue("Options.SendFailed") + ":\r\n" +
+                                exceptionMessage +
+                                ":\r\n" + LocalizationProvider.Instance.GetTextValue("Options.Mail"),
+                                MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
+                                {
+                                    AnimateHide = false,
+                                    AnimateShow = false,
+                                    AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.Retry"),
+                                });
+                }
+            }
         }
     }
 }

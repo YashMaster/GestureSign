@@ -63,13 +63,13 @@ namespace GestureSign.Common.Applications
 
                         break;
                     case MatchUsing.ExecutableFilename:
-                        windowMatchString = System.IO.Path.GetFileName(Window.MainModulePath);
+                        windowMatchString = Window.Process.MainModule.ModuleName;
 
                         break;
                     case MatchUsing.All:
                         return true;
                 }
-
+                
                 return IsRegEx ? Regex.IsMatch(windowMatchString, compareMatchString, RegexOptions.Singleline | RegexOptions.IgnoreCase) : String.Equals(windowMatchString.Trim(), compareMatchString.Trim(), StringComparison.CurrentCultureIgnoreCase);
             }
             catch

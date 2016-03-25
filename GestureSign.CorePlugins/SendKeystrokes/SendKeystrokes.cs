@@ -2,6 +2,7 @@
 using GestureSign.Common.Plugins;
 
 using System.Windows.Controls;
+using WindowsInput;
 using GestureSign.Common.Localization;
 
 namespace GestureSign.CorePlugins.SendKeystrokes
@@ -12,6 +13,8 @@ namespace GestureSign.CorePlugins.SendKeystrokes
 
         private SendKeystrokesControl _GUI = null;
         private string _keystrokes;
+        private bool _useSendInput;
+        private const string SendInput = "{SendInput}";
 
         #endregion
 
@@ -68,11 +71,18 @@ namespace GestureSign.CorePlugins.SendKeystrokes
         {
             try
             {
-                if (ActionPoint.WindowHandle.ToInt64() != ManagedWinapi.Windows.SystemWindow.ForegroundWindow.HWnd.ToInt64())
+                if (ActionPoint.WindowHandle.ToInt64() !=
+                    ManagedWinapi.Windows.SystemWindow.ForegroundWindow.HWnd.ToInt64())
                     ManagedWinapi.Windows.SystemWindow.ForegroundWindow = ActionPoint.Window;
-
-                System.Windows.Forms.SendKeys.SendWait(_keystrokes);
-
+                if (_useSendInput)
+                {
+                    InputSimulator simulator = new InputSimulator();
+                    simulator.Keyboard.TextEntry(_keystrokes);
+                }
+                else
+                {
+                    System.Windows.Forms.SendKeys.SendWait(_keystrokes);
+                }
                 return true;
             }
             catch
@@ -83,7 +93,8 @@ namespace GestureSign.CorePlugins.SendKeystrokes
 
         public bool Deserialize(string SerializedData)
         {
-            _keystrokes = SerializedData;
+            _useSendInput = SerializedData.StartsWith(SendInput);
+            _keystrokes = _useSendInput ? SerializedData.Remove(0, SendInput.Length) : SerializedData;
             return true;
         }
 
@@ -92,7 +103,10 @@ namespace GestureSign.CorePlugins.SendKeystrokes
             if (_GUI != null)
             {
                 _keystrokes = _GUI.TxtSendKeys.Text;
-                return _keystrokes;
+                if (_GUI.UseSendInputCheckBox.IsChecked.Value)
+                    return _keystrokes.Insert(0, SendInput);
+                else
+                    return _keystrokes;
             }
             else return _keystrokes ?? String.Empty;
         }
@@ -106,6 +120,7 @@ namespace GestureSign.CorePlugins.SendKeystrokes
             SendKeystrokesControl sendKeystrokesControl = new SendKeystrokesControl();
             sendKeystrokesControl.Loaded += (s, o) =>
             {
+                TypedGUI.UseSendInputCheckBox.IsChecked = _useSendInput;
                 TypedGUI.TxtSendKeys.Text = _keystrokes;
             };
             return sendKeystrokesControl;

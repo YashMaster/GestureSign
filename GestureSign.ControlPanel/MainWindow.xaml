@@ -8,7 +8,7 @@
                       FlowDirection="{StaticResource DefaultFlowDirection}"
                       Title="{localization:LocalisedText Title}"
                       Height="500"
-                      Width="650"
+                      Width="660"
                       ShowIconOnTitleBar="False"
                       ShowTitleBar="True"
                       Icon="Resources/normal.ico"
@@ -49,13 +49,6 @@
             </Button>
         </controls:WindowCommands>
     </controls:MetroWindow.RightWindowCommands>
-
-    <controls:MetroWindow.Flyouts>
-        <controls:FlyoutsControl>
-            <flyouts:RuningApplicationsFlyout x:Name="RuningAppFlyout"></flyouts:RuningApplicationsFlyout>
-            <flyouts:EditApplicationFlyout x:Name="EditAppFlyout"></flyouts:EditApplicationFlyout>
-        </controls:FlyoutsControl>
-    </controls:MetroWindow.Flyouts>
     <Grid>
         <TabControl>
             <TabItem Header="{localization:LocalisedText Action.Header}"
@@ -73,7 +66,7 @@
             <TabItem Header="{localization:LocalisedText Options.Header}"
                      controls:ControlsHelper.HeaderFontSize="32">
                 <mainWindowControl:Options Width="Auto"
-                               Height="Auto" />
+                                           Height="Auto" />
             </TabItem>
             <TabItem Header="{localization:LocalisedText About.Header}"
                      controls:ControlsHelper.HeaderFontSize="32">

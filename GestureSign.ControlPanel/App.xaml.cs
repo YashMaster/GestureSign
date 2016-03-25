@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows;
+using GestureSign.Common;
 using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
@@ -11,6 +12,7 @@ using GestureSign.Common.InterProcessCommunication;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using GestureSign.ControlPanel.Common;
+using GestureSign.ControlPanel.Localization;
 using MahApps.Metro;
 using Microsoft.Win32;
 
@@ -29,10 +31,11 @@ namespace GestureSign.ControlPanel
                 () => { if (Current.Windows.Count == 0) Current.Shutdown(); else Timer.Change(300000, Timeout.Infinite); });
         }, Timer, Timeout.Infinite, Timeout.Infinite);
 
-        private void Application_Startup(object sender, StartupEventArgs e)
+        private async void Application_Startup(object sender, StartupEventArgs e)
         {
             try
             {
+                Logging.OpenLogFile();
                 LoadLanguageData();
 
                 string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSignDaemon.exe");
@@ -73,29 +76,50 @@ namespace GestureSign.ControlPanel
                         daemon.StartInfo.CreateNoWindow = false;
                         daemon.Start();
                     }
+                    Current.Shutdown();
                 }
-
-                if (createdNewDaemon) Current.Shutdown();
                 else
                 {
-                    Initialization();
-
-                    if (e.Args.Length != 0 && e.Args[0].Equals("/L"))
+                    bool createdNew;
+                    mutex = new Mutex(true, "GestureSignControlPanel", out createdNew);
+                    if (createdNew)
                     {
-                        Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                        Timer.Change(300000, Timeout.Infinite);
+                        var systemAccent = UIHelper.GetSystemAccent();
+                        if (systemAccent != null)
+                        {
+                            var accent = ThemeManager.GetAccent(systemAccent);
+                            ThemeManager.ChangeAppStyle(Current, accent, ThemeManager.GetAppTheme("BaseLight"));
+                        }
+
+                        if (e.Args.Length != 0 && e.Args[0].Equals("/L"))
+                        {
+                            Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                            Timer.Change(300000, Timeout.Infinite);
+                        }
+                        else
+                        {
+                            MainWindow mainWindow = new MainWindow();
+                            mainWindow.Show();
+                        }
+
+                        GestureManager.Instance.Load(null);
+                        PluginManager.Instance.Load(null);
+                        ApplicationManager.Instance.Load(null);
+
+                        NamedPipe.Instance.RunNamedPipeServer("GestureSignControlPanel", new MessageProcessor());
                     }
                     else
                     {
-                        MainWindow mainWindow = new MainWindow();
-                        mainWindow.Show();
-                        mainWindow.Activate();
+                        await NamedPipe.SendMessageAsync("MainWindow", "GestureSignControlPanel");
+                        Current.Shutdown();
                     }
+
                 }
 
             }
             catch (Exception exception)
             {
+                Logging.LogException(exception);
                 MessageBox.Show(exception.ToString(), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Current.Shutdown();
             }
@@ -109,49 +133,21 @@ namespace GestureSign.ControlPanel
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
-        private void Initialization()
-        {
-            bool createdNew;
-            mutex = new Mutex(true, "GestureSignControlPanel", out createdNew);
-            if (createdNew)
-            {
-
-                GestureManager.Instance.Load(null);
-                ApplicationManager.Instance.Load(null);
-                PluginManager.Instance.Load(null);
-
-                var systemAccent = UIHelper.GetSystemAccent();
-                if (systemAccent != null)
-                {
-                    var accent = ThemeManager.GetAccent(systemAccent);
-                    ThemeManager.ChangeAppStyle(Current, accent, ThemeManager.GetAppTheme("BaseLight"));
-                }
-
-                NamedPipe.Instance.RunNamedPipeServer("GestureSignControlPanel", new MessageProcessor());
-            }
-            else
-            {
-                MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.AlreadyRunning"),
-                    LocalizationProvider.Instance.GetTextValue("Messages.AlreadyRunningTitle"));
-                Current.Shutdown();
-            }
-        }
-
         private void LoadLanguageData()
         {
-            if ("Built-in".Equals(AppConfig.CultureName) || !LocalizationProvider.Instance.LoadFromFile("ControlPanel", ControlPanel.Properties.Resources.en))
+            if ("Built-in".Equals(AppConfig.CultureName) || !LocalizationProviderEx.Instance.LoadFromFile("ControlPanel", ControlPanel.Properties.Resources.en))
             {
-                LocalizationProvider.Instance.LoadFromResource(ControlPanel.Properties.Resources.en);
+                LocalizationProviderEx.Instance.LoadFromResource(ControlPanel.Properties.Resources.en);
             }
 
             Current.Resources.Remove("DefaultFlowDirection");
-            Current.Resources.Add("DefaultFlowDirection", LocalizationProvider.Instance.FlowDirection);
+            Current.Resources.Add("DefaultFlowDirection", LocalizationProviderEx.Instance.FlowDirection);
             Current.Resources.Remove("DefaultFont");
-            Current.Resources.Add("DefaultFont", LocalizationProvider.Instance.Font);
+            Current.Resources.Add("DefaultFont", LocalizationProviderEx.Instance.Font);
             Current.Resources.Remove("HeaderFontFamily");
-            Current.Resources.Add("HeaderFontFamily", LocalizationProvider.Instance.Font);
+            Current.Resources.Add("HeaderFontFamily", LocalizationProviderEx.Instance.Font);
             Current.Resources.Remove("ContentFontFamily");
-            Current.Resources.Add("ContentFontFamily", LocalizationProvider.Instance.Font);
+            Current.Resources.Add("ContentFontFamily", LocalizationProviderEx.Instance.Font);
         }
 
         private bool CheckIfApplicationRunAsAdmin()

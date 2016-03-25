@@ -6,25 +6,19 @@
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              xmlns:converters="clr-namespace:GestureSign.ControlPanel.Converters"
              xmlns:viewModel="clr-namespace:GestureSign.ControlPanel.ViewModel"
+             xmlns:applications="clr-namespace:GestureSign.Common.Applications;assembly=GestureSign.Common"
              mc:Ignorable="d"
              d:DesignHeight="400"
              d:DesignWidth="540">
     <UserControl.Resources>
         <ResourceDictionary>
-            <converters:HeaderConverter x:Key="headerConverter"></converters:HeaderConverter>
             <converters:ApplicationListHeaderConverter x:Key="ApplicationListHeaderConverter"></converters:ApplicationListHeaderConverter>
             <converters:VisibilityConverter x:Key="VisibilityConverter"></converters:VisibilityConverter>
-            <Canvas x:Key="appbar_add"
-                    Width="76"
-                    Height="76"
-                    Clip="F1 M 0,0L 76,0L 76,76L 0,76L 0,0">
-                <Path Width="38"
-                      Height="38"
-                      Canvas.Left="19"
-                      Canvas.Top="19"
-                      Stretch="Fill"
-                      Fill="#FF000000"
-                      Data="F1 M 35,19L 41,19L 41,35L 57,35L 57,41L 41,41L 41,57L 35,57L 35,41L 19,41L 19,35L 35,35L 35,19 Z " />
+            <Canvas x:Key="Plus"
+                    Width="24"
+                    Height="24">
+                <Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"
+                      Fill="Black" />
             </Canvas>
             <Canvas x:Key="appbar_page_edit"
                     Width="76"
@@ -60,18 +54,6 @@
                     Width="24"
                     Height="24">
                 <Path Data="M10,4H14V13L17.5,9.5L19.92,11.92L12,19.84L4.08,11.92L6.5,9.5L10,13V4Z"
-                      Fill="Black" />
-            </Canvas>
-            <Canvas x:Key="checkbox-multiple-marked"
-                    Width="24"
-                    Height="24">
-                <Path Data="M22,16A2,2 0 0,1 20,18H8C6.89,18 6,17.1 6,16V4C6,2.89 6.89,2 8,2H20A2,2 0 0,1 22,4V16M16,20V22H4A2,2 0 0,1 2,20V7H4V20H16M13,14L20,7L18.59,5.59L13,11.17L9.91,8.09L8.5,9.5L13,14Z"
-                      Fill="Black" />
-            </Canvas>
-            <Canvas x:Key="checkbox-multiple-blank"
-                    Width="24"
-                    Height="24">
-                <Path Data="M22,16A2,2 0 0,1 20,18H8C6.89,18 6,17.1 6,16V4C6,2.89 6.89,2 8,2H20A2,2 0 0,1 22,4V16M16,20V22H4A2,2 0 0,1 2,20V7H4V20H16Z"
                       Fill="Black" />
             </Canvas>
 
@@ -136,32 +118,105 @@
             </ObjectDataProvider>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid>
+    <Grid SnapsToDevicePixels="True"
+          UseLayoutRounding="True">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*" />
             <ColumnDefinition Width="3*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="34" />
             <RowDefinition Height="1*" />
             <RowDefinition Height="65" />
         </Grid.RowDefinitions>
+        <Button x:Name="NewApplicationButton"
+                Grid.Row="0"
+                Grid.Column="0"
+                Click="NewApplicationButton_OnClick"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                VerticalAlignment="Top"
+                Height="50"
+                Panel.ZIndex="1">
+            <Button.Style>
+                <Style  TargetType="Button">
+                    <Setter Property="Foreground"
+                            Value="{StaticResource HighlightBrush}" />
+                    <Setter Property="Background"
+                            Value="{StaticResource AccentColorBrush4}" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border SnapsToDevicePixels="True"
+                                        BorderThickness="0"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        Background="{TemplateBinding Background}">
+                                    <ContentPresenter HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Stretch" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver"
+                                             Value="True">
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource AccentColorBrush3}" />
+                                        <Setter Property="Background"
+                                                Value="{StaticResource AccentColorBrush3}" />
+                                    </Trigger>
+                                    <Trigger Property="IsPressed"
+                                             Value="True">
+                                        <Setter Property="Background"
+                                                Value="{StaticResource AccentColorBrush}" />
+                                        <Setter Property="Foreground"
+                                                Value="{StaticResource IdealForegroundColorBrush}" />
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource AccentColorBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+            <Button.Content>
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                               Height="20"
+                               VerticalAlignment="Center"
+                               Margin="5,0,0,0">
+                        <Rectangle.Fill>
+                            <VisualBrush Visual="{StaticResource Plus}"
+                                         Stretch="Uniform" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <TextBlock Text="{localization:LocalisedText ApplicationDialog.AddApplication}"
+                               VerticalAlignment="Center"
+                               FontSize="15"
+                               Margin="5,0,0,0" />
+                </StackPanel>
+            </Button.Content>
+        </Button>
         <ListBox x:Name="lstAvailableApplication"
                  ScrollViewer.CanContentScroll="False"
                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  SelectionChanged="lstAvailableApplication_SelectionChanged"
                  ContextMenuOpening="lstAvailableApplication_ContextMenuOpening"
-                 Grid.RowSpan="2">
+                 Grid.Row="0"
+                 Grid.Column="0"
+                 Margin="0,50,0,0">
             <ListBox.ContextMenu>
                 <ContextMenu>
+                    <MenuItem  x:Name="PasteActionMenuItem2"
+                               Header="{localization:LocalisedText Action.PasteAction}"
+                               FontSize="16"
+                               Click="PasteActionMenuItem_Click" />
+                    <Separator />
                     <MenuItem x:Name="InterceptTouchInputMenuItem"
-                              Header="{localization:LocalisedText ActionDialog.InterceptTouchInput}"
+                              Header="{localization:LocalisedText ApplicationDialog.InterceptTouchInput}"
                               IsCheckable="True"
                               FontSize="16"
                               Click="InterceptTouchInputMenuItem_Click" />
                     <MenuItem x:Name="AllowSingleMenuItem"
-                              Header="{localization:LocalisedText ActionDialog.AllowSingleFinger}"
+                              Header="{localization:LocalisedText ApplicationDialog.AllowSingleFinger}"
                               IsCheckable="True"
                               FontSize="16"
                               Click="AllowSingleMenuItem_Click" />
@@ -174,10 +229,12 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="{x:Type GroupItem}">
-                                        <Expander IsExpanded="True">
+                                        <Expander IsExpanded="True"
+                                                  Padding="0"
+                                                  BorderThickness="0">
                                             <Expander.Header>
                                                 <DockPanel>
-                                                    <TextBlock FontWeight="Bold"
+                                                    <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
                                                                Margin="5,0,0,0"
                                                                HorizontalAlignment="Center"
                                                                DockPanel.Dock="Top">
@@ -218,33 +275,43 @@
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="{x:Type ListBoxItem}"
+                       BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="HorizontalContentAlignment"
+                            Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment"
+                            Value="Stretch" />
+                </Style>
+            </ListBox.ItemContainerStyle>
         </ListBox>
-        <DockPanel Grid.Row="0"
-                   Grid.Column="1"
-                   Background="{StaticResource AccentColorBrush}"
-                   Margin="0,5,0,0">
-            <TextBlock FontWeight="Bold"
-                       Margin="5,0,0,0"
+        <Grid Grid.Row="0"
+              Grid.Column="1"
+              Background="{StaticResource AccentColorBrush}"
+              Height="29"
+              VerticalAlignment="Top">
+            <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
                        HorizontalAlignment="Center"
-                       DockPanel.Dock="Top"
                        VerticalAlignment="Center">
-                <TextBlock.Text>
-                    <Binding Converter="{StaticResource headerConverter}"
-                             ElementName="lstAvailableApplication"
-                             Path="SelectedItem"
-                             Mode="OneWay" />
-                </TextBlock.Text>
+                <Run Text="{Binding ElementName=lstAvailableApplication,Path=SelectedItem.(applications:IApplication.Name),Mode=OneWay}" />
+                <Run Text="{Binding ElementName=lstAvailableActions,Path=Items.Count,Mode=OneWay,StringFormat={localization:LocalisedText Action.ActionCount}}" />
             </TextBlock>
-        </DockPanel>
+            <CheckBox x:Name="ToggleAllActionsCheckBox"
+                      IsEnabled="False"
+                      Click="ToggleAllActionsCheckBox_Click"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Right"
+                      Margin="0,0,1,0" />
+        </Grid>
         <ListBox x:Name="lstAvailableActions"
-                 ContextMenuOpening="ActionContextMenu_Opening"
+                 ContextMenuOpening="LstAvailableActions_OnContextMenuOpening"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 Margin="0"
                  SelectionChanged="lstAvailableActions_SelectionChanged"
                  ScrollViewer.CanContentScroll="False"
+                 Grid.Row="0"
                  Grid.Column="1"
-                 Grid.Row="1"
-                 BorderBrush="{StaticResource AccentColorBrush}">
+                 BorderBrush="{StaticResource AccentColorBrush}"
+                 Margin="0,29,0,0">
             <ListBox.Resources>
                 <ControlTemplate x:Key="ExpanderButton"
                                  TargetType="{x:Type ToggleButton}">
@@ -440,7 +507,7 @@
                                                   IsExpanded="True"
                                                   ExpandDirection="Right"
                                                   Padding="0"
-                                                  Margin="0,5">
+                                                  Margin="0,0,0,5">
                                             <Expander.Template>
                                                 <ControlTemplate TargetType="{x:Type Expander}">
                                                     <DockPanel>
@@ -538,9 +605,18 @@
             </ListBox.GroupStyle>
             <ListBox.ContextMenu>
                 <ContextMenu>
+                    <MenuItem  x:Name="CutActionMenuItem"
+                               Header="{localization:LocalisedText Action.CutAction}"
+                               FontSize="16"
+                               Click="CutActionMenuItem_Click" />
                     <MenuItem  x:Name="CopyActionMenuItem"
                                Header="{localization:LocalisedText Action.CopyAction}"
-                               FontSize="16" />
+                               FontSize="16"
+                               Click="CopyActionMenuItem_Click" />
+                    <MenuItem  x:Name="PasteActionMenuItem"
+                               Header="{localization:LocalisedText Action.PasteAction}"
+                               FontSize="16"
+                               Click="PasteActionMenuItem_Click" />
                     <Separator></Separator>
                     <MenuItem x:Name="ImportActionMenuItem"
                               Header="{localization:LocalisedText Action.ImportActions}"
@@ -569,35 +645,41 @@
                     <Grid Height="85"
                           Margin="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="35" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="30" />
                         </Grid.ColumnDefinitions>
-                        <CheckBox Margin="5,0,10,0"
+                        <CheckBox Grid.Column="1"
                                   IsChecked="{Binding Path=IsEnabled}"
-                                  IsThreeState="False"
-                                  Click="ActionCheckBox_Click" />
-
-                        <TextBlock TextWrapping="NoWrap"
+                                  Click="ActionCheckBox_Click"
+                                  HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="0"
+                                   TextWrapping="NoWrap"
                                    Text="{Binding ActionName}"
-                                   Margin="0,25,0,0"
+                                   Margin="5,25,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Top"
-                                   Width="Auto"
-                                   Panel.ZIndex="1"
-                                   Grid.Column="2" />
-                        <TextBlock TextWrapping="Wrap"
+                                   Width="Auto" />
+                        <TextBlock Grid.Column="0"
+                                   TextWrapping="Wrap"
                                    Text="{Binding Description}"
                                    DockPanel.Dock="Top"
                                    HorizontalAlignment="Left"
-                                   VerticalAlignment="Bottom"
+                                   VerticalAlignment="Top"
                                    Width="Auto"
                                    Foreground="{StaticResource HighlightBrush}"
-                                   Panel.ZIndex="1"
-                                   Grid.Column="2"
-                                   Margin="0,0,0,25" />
+                                   Margin="5,45,0,0" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="{x:Type ListBoxItem}"
+                       BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="HorizontalContentAlignment"
+                            Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment"
+                            Value="Stretch" />
+                </Style>
+            </ListBox.ItemContainerStyle>
         </ListBox>
         <Button x:Name="btnAddAction"
                 Style="{DynamicResource MetroCircleButtonStyle}"
@@ -612,7 +694,7 @@
             <Rectangle Width="20"
                        Height="20">
                 <Rectangle.Fill>
-                    <VisualBrush Visual="{StaticResource appbar_add}" />
+                    <VisualBrush Visual="{StaticResource Plus}" />
                 </Rectangle.Fill>
             </Rectangle>
         </Button>
@@ -665,7 +747,7 @@
                 Grid.Row="2"
                 Grid.Column="1"
                 Click="MoveUpButton_Click"
-                Visibility="Hidden">
+                IsEnabled="False">
             <Rectangle Width="18"
                        Height="20"
                        Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
@@ -684,7 +766,7 @@
                 Grid.Row="2"
                 Grid.Column="1"
                 Click="MoveDownButton_Click"
-                Visibility="Hidden">
+                IsEnabled="False">
             <Rectangle Width="18"
                        Height="20"
                        Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
@@ -693,16 +775,17 @@
                 </Rectangle.OpacityMask>
             </Rectangle>
         </Button>
-        <Button x:Name="EditAppButton"
+        <Button Grid.Row="2"
+                Grid.Column="0"
+                x:Name="EditAppButton"
                 Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
+                Visibility="Hidden"
                 Height="50"
                 Width="50"
-                Margin="10,0,0,10"
-                Grid.Row="2"
-                Grid.Column="0"
-                Click="EditAppButton_Click">
+                Click="EditAppButton_Click"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="10,0,0,0">
             <Rectangle Width="20"
                        Height="20"
                        Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
@@ -713,15 +796,16 @@
             </Rectangle>
         </Button>
         <Button x:Name="DeleteAppButton"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="65,0,0,10"
                 Grid.Row="2"
                 Grid.Column="0"
-                Click="DeleteAppButton_Click">
+                Style="{DynamicResource MetroCircleButtonStyle}"
+                Visibility="Hidden"
+                Height="50"
+                Width="50"
+                Click="DeleteAppButton_Click"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                Margin="65,0,0,0">
             <Rectangle Width="18"
                        Height="20"
                        Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
@@ -730,105 +814,5 @@
                 </Rectangle.OpacityMask>
             </Rectangle>
         </Button>
-        <ToggleButton x:Name="EnableAllButton"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Bottom"
-                      Height="50"
-                      Width="50"
-                      Margin="10,0,0,10"
-                      Grid.Row="2"
-                      Click="EnableAllButton_Click"
-                      Grid.Column="1">
-            <ToggleButton.Resources>
-                <Style  TargetType="ToggleButton"
-                        BasedOn="{StaticResource {x:Type ToggleButton}}">
-                    <Setter Property="FocusVisualStyle"
-                            Value="{StaticResource MetroCircleButtonFocusVisual}" />
-                    <Setter Property="Background"
-                            Value="Transparent" />
-                    <Setter Property="BorderThickness"
-                            Value="2" />
-                    <Setter Property="HorizontalContentAlignment"
-                            Value="Center" />
-                    <Setter Property="Foreground"
-                            Value="{DynamicResource BlackBrush}" />
-                    <Setter Property="VerticalContentAlignment"
-                            Value="Center" />
-                    <Setter Property="Padding"
-                            Value="1" />
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="{x:Type ToggleButton}">
-                                <Grid>
-                                    <Ellipse Fill="{TemplateBinding Background}"
-                                             Margin="4"
-                                             StrokeThickness="0" />
-                                    <Rectangle  Width="18"
-                                                Height="20">
-                                        <Rectangle.Fill>
-                                            <VisualBrush Visual="{StaticResource  checkbox-multiple-marked}" />
-                                        </Rectangle.Fill>
-                                    </Rectangle>
-                                    <Rectangle Width="18"
-                                               x:Name="Rectanglebg"
-                                               Height="20">
-                                        <Rectangle.Fill>
-                                            <VisualBrush Visual="{StaticResource   checkbox-multiple-blank}" />
-                                        </Rectangle.Fill>
-                                    </Rectangle>
-                                    <Ellipse x:Name="ellipse"
-                                             Margin="4"
-                                             Stroke="#ADADAD"
-                                             StrokeThickness="{Binding RelativeSource={x:Static RelativeSource.TemplatedParent}, Path=BorderThickness.Left}" />
-                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                      Margin="{TemplateBinding Padding}"
-                                                      RecognizesAccessKey="True"
-                                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="ToggleButton.IsChecked"
-                                             Value="True">
-                                        <Trigger.EnterActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="Rectanglebg"
-                                                                     Storyboard.TargetProperty="Opacity"
-                                                                     From="1"
-                                                                     To="0"
-                                                                     Duration="0:0:0.1" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </Trigger.EnterActions>
-                                        <Trigger.ExitActions>
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="Rectanglebg"
-                                                                     Storyboard.TargetProperty="Opacity"
-                                                                     To="1"
-                                                                     Duration="0:0:0.1" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </Trigger.ExitActions>
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver"
-                                             Value="True">
-                                        <Setter TargetName="ellipse"
-                                                Property="Opacity"
-                                                Value="1" />
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver"
-                                             Value="False">
-                                        <Setter TargetName="ellipse"
-                                                Property="Opacity"
-                                                Value=".5" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </ToggleButton.Resources>
-        </ToggleButton>
     </Grid>
 </UserControl>

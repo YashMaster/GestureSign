@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
 using GestureSign.Common;
@@ -15,6 +18,7 @@ namespace GestureSign.Daemon
 {
     static class Program
     {
+        private const string TouchInputProvider = "GestureSign_TouchInputProvider";
         private static SurfaceForm _surfaceForm;
         /// <summary>
         /// 应用程序的主入口点。
@@ -23,7 +27,7 @@ namespace GestureSign.Daemon
         static void Main()
         {
             bool createdNew;
-            using (Mutex mutex = new Mutex(true, "GestureSignDaemon", out createdNew))
+            using (new Mutex(true, "GestureSignDaemon", out createdNew))
             {
                 if (createdNew)
                 {
@@ -42,7 +46,8 @@ namespace GestureSign.Daemon
 
                         TouchCapture.Instance.Load();
                         _surfaceForm = new SurfaceForm();
-                        TouchCapture.Instance.EnableTouchCapture();
+
+                        if (!StartTouchInputProvider()) return;
 
                         GestureManager.Instance.Load(TouchCapture.Instance);
                         ApplicationManager.Instance.Load(TouchCapture.Instance);
@@ -58,17 +63,16 @@ namespace GestureSign.Daemon
                         PluginManager.Instance.Load(hostControl);
                         TrayManager.Instance.Load();
 
-                        AppConfig.ToggleWatcher();
+                        SynchronizationContext uiContext = SynchronizationContext.Current;
+                        NamedPipe.Instance.RunNamedPipeServer("GestureSignDaemon", new MessageProcessor(uiContext));
 
-                        NamedPipe.Instance.RunNamedPipeServer("GestureSignDaemon", new MessageProcessor());
-
-                        if (TouchCapture.Instance.MessageWindow.NumberOfTouchscreens == 0)
-                        {
-                            MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFound"),
-                                LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFoundTitle"),
-                                MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                            //return;
-                        }
+                        //if (TouchCapture.Instance.MessageWindow.NumberOfTouchscreens == 0)
+                        //{
+                        //    MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFound"),
+                        //        LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFoundTitle"),
+                        //        MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        //    //return;
+                        //}
                         Application.Run();
                     }
                     catch (Exception e)
@@ -84,8 +88,6 @@ namespace GestureSign.Daemon
                     Application.Exit();
                 }
             }
-
-
         }
 
         private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
@@ -114,6 +116,40 @@ namespace GestureSign.Daemon
             // Exits the program when the user clicks Abort.
             if (result == DialogResult.Abort)
                 Application.Exit();
+        }
+
+        private static bool StartTouchInputProvider()
+        {
+            bool createdNewProvider;
+            using (new Mutex(false, TouchInputProvider, out createdNewProvider))
+                if (createdNewProvider)
+                {
+                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSign.TouchInputProvider.exe");
+                    if (!File.Exists(path))
+                    {
+                        MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.CannotFindTouchInputProviderMessage"),
+                            LocalizationProvider.Instance.GetTextValue("Messages.Error"));
+                        return false;
+                    }
+                    using (Process daemon = new Process())
+                    {
+                        daemon.StartInfo.FileName = path;
+
+                        //daemon.StartInfo.UseShellExecute = false;
+                        if (IsAdministrator())
+                            daemon.StartInfo.Verb = "runas";
+                        daemon.StartInfo.CreateNoWindow = false;
+                        daemon.Start();
+                    }
+                }
+            return true;
+        }
+
+        private static bool IsAdministrator()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
     }
 }

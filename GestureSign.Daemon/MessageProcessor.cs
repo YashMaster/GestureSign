@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Threading;
 using System.Windows.Forms;
 using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
@@ -15,7 +16,14 @@ namespace GestureSign.Daemon
 {
     class MessageProcessor : IMessageProcessor
     {
-        public void ProcessMessages(NamedPipeServerStream server)
+        private SynchronizationContext _synchronizationContext;
+
+        public MessageProcessor(SynchronizationContext synchronizationContext)
+        {
+            _synchronizationContext = synchronizationContext;
+        }
+
+        public bool ProcessMessages(NamedPipeServerStream server)
         {
             BinaryFormatter binForm = new BinaryFormatter();
 
@@ -27,7 +35,7 @@ namespace GestureSign.Daemon
                 string message = data as string;
                 if (message != null)
                 {
-                    TouchCapture.Instance.MessageWindow.Invoke(new Action(() =>
+                    _synchronizationContext.Post(state =>
                     {
                         switch (message)
                         {
@@ -36,10 +44,7 @@ namespace GestureSign.Daemon
                             //    break;
                             case "StartTeaching":
                                 {
-                                    if (TouchCapture.Instance.State == CaptureState.UserDisabled)
-                                        TrayManager.Instance.ToggleDisableGestures();
-                                    if (!AppConfig.Teaching)
-                                        TrayManager.Instance.StartTeaching();
+                                    TouchCapture.Instance.Mode = CaptureMode.Training;
                                     break;
                                 }
                             case "EnableTouchCapture":
@@ -54,6 +59,9 @@ namespace GestureSign.Daemon
                             case "LoadGestures":
                                 GestureManager.Instance.LoadGestures().Wait();
                                 break;
+                            case "LoadConfiguration":
+                                AppConfig.Reload();
+                                break;
                             case "ShowTrayIcon":
                                 TrayManager.Instance.TrayIconVisible = true;
                                 break;
@@ -61,9 +69,10 @@ namespace GestureSign.Daemon
                                 TrayManager.Instance.TrayIconVisible = false;
                                 break;
                         }
-                    }));
+                    }, null);
                 }
             }
+            return true;
         }
 
     }

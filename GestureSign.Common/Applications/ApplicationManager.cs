@@ -4,17 +4,16 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using GestureSign.Common.InterProcessCommunication;
 using ManagedWinapi.Windows;
 using Action = GestureSign.Applications.Action;
-using Point = System.Drawing.Point;
-using Timer = System.Threading.Timer;
+using RECT = ManagedWinapi.Windows.RECT;
 
 namespace GestureSign.Common.Applications
 {
@@ -23,12 +22,12 @@ namespace GestureSign.Common.Applications
         #region Private Variables
 
         // Create variable to hold the only allowed instance of this class
-        static readonly ApplicationManager _Instance = new ApplicationManager();
+        private static ApplicationManager _instance;
         private List<IApplication> _Applications;
         IApplication _CurrentApplication = null;
         IEnumerable<IApplication> RecognizedApplication;
         private Timer timer;
-        public event EventHandler OnLoadApplicationsCompleted;
+        public static event EventHandler OnLoadApplicationsCompleted;
         #endregion
 
         #region Public Instance Properties
@@ -44,14 +43,14 @@ namespace GestureSign.Common.Applications
             }
         }
 
-        public bool FinishedLoading { get; set; }
-
         public List<IApplication> Applications { get { return _Applications; } }
 
         public static ApplicationManager Instance
         {
-            get { return _Instance; }
+            get { return _instance ?? (_instance = new ApplicationManager()); }
         }
+
+        public static bool FinishedLoading { get; set; }
 
         #endregion
 
@@ -68,7 +67,7 @@ namespace GestureSign.Common.Applications
                     if (OnLoadApplicationsCompleted != null) OnLoadApplicationsCompleted(this, EventArgs.Empty);
                     FinishedLoading = true;
                 };
-            GestureManager.Instance.GestureEdited += GestureManager_GestureEdited;
+            GestureManager.GestureEdited += GestureManager_GestureEdited;
             // Load applications from disk, if file couldn't be loaded, create an empty applications list
             LoadApplications().ContinueWith(antecendent => loadCompleted(antecendent.Result));
         }
@@ -81,18 +80,21 @@ namespace GestureSign.Common.Applications
 
         protected void TouchCapture_CaptureStarted(object sender, PointsCapturedEventArgs e)
         {
-            using (Graphics graphics = Graphics.FromHwnd(IntPtr.Zero))
+            if (e.Mode == CaptureMode.Training) return;
+
+            if (Environment.OSVersion.Version.Major == 6)
             {
                 IntPtr hwndCharmBar = FindWindow("NativeHWNDHost", "Charm Bar");
-                var window = SystemWindow.FromPointEx((int)(SystemParameters.VirtualScreenWidth * graphics.DpiX / 96 - 1), 1,
-                    true, true);
+                var window = SystemWindow.FromPointEx(SystemWindow.DesktopWindow.Rectangle.Right - 1, 1, true, true);
+
                 if (window != null && window.HWnd.Equals(hwndCharmBar))
                 {
                     e.Cancel = e.InterceptTouchInput = false;
                     return;
                 }
             }
-            CaptureWindow = GetWindowFromPoint(e.CapturePoint.FirstOrDefault());
+
+            CaptureWindow = GetWindowFromPoint(e.LastCapturedPoints.FirstOrDefault());
             IApplication[] applicationFromWindow = GetApplicationFromWindow(CaptureWindow);
             foreach (IApplication app in applicationFromWindow)
             {
@@ -120,7 +122,7 @@ namespace GestureSign.Common.Applications
         protected void TouchCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
         {
             // Derive capture window from capture point
-            CaptureWindow = GetWindowFromPoint(e.CapturePoint.FirstOrDefault());
+            CaptureWindow = GetWindowFromPoint(e.LastCapturedPoints.FirstOrDefault());
             RecognizedApplication = GetApplicationFromWindow(CaptureWindow);
         }
 
@@ -246,9 +248,9 @@ namespace GestureSign.Common.Applications
             {
                 return new[] { GetGlobalApplication() };
             }
-            IApplication[] definedApplications = userApplicationOnly ?
-                Applications.Where(a => (a is UserApplication) && a.IsSystemWindowMatch(Window)).ToArray() :
-                Applications.Where(a => !(a is GlobalApplication) && a.IsSystemWindowMatch(Window)).ToArray();
+            IApplication[] definedApplications = userApplicationOnly
+                ? FindMatchApplications(Applications.Where(a => a is UserApplication), Window)
+                : FindMatchApplications(Applications.Where(a => !(a is GlobalApplication)), Window);
             // Try to find any user or ignored applications that match the given system window
             // If not user or ignored application could be found, return the global application
             return definedApplications.Length != 0
@@ -346,6 +348,15 @@ namespace GestureSign.Common.Applications
             RemoveAction(ActionName, false);
         }
 
+        public IApplication[] FindMatchApplications<TApplication>(MatchUsing matchUsing, string matchString, string excludedApplication = null) where TApplication : IApplication
+        {
+            return _Applications.FindAll(
+                    a => a is TApplication &&
+                        matchString.Equals(a.MatchString, StringComparison.CurrentCultureIgnoreCase) &&
+                        matchUsing == a.MatchUsing &&
+                        excludedApplication != a.Name).ToArray();
+        }
+
         #endregion
 
         #region Private Methods
@@ -361,11 +372,85 @@ namespace GestureSign.Common.Applications
                     app.RemoveAllActions(a => a.Name.ToLower().Trim() == ActionName.ToLower().Trim());
         }
 
+        private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window)
+        {
+            var byFileName = new List<IApplication>();
+            var byTitle = new List<IApplication>();
+            var byClass = new List<IApplication>();
+            foreach (var app in applications)
+            {
+                switch (app.MatchUsing)
+                {
+                    case MatchUsing.WindowClass:
+                        byClass.Add(app);
+                        break;
+                    case MatchUsing.WindowTitle:
+                        byTitle.Add(app);
+                        break;
+                    case MatchUsing.ExecutableFilename:
+                        byFileName.Add(app);
+                        break;
+                    case MatchUsing.All:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            List<IApplication> result = new List<IApplication>();
+            string windowMatchString;
+            if (byClass.Count != 0)
+            {
+                try
+                {
+                    windowMatchString = window.ClassName;
+                    result.AddRange(byClass.Where(a => a.MatchString != null && CompareString(a.MatchString, windowMatchString, a.IsRegEx)));
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+            if (byTitle.Count != 0)
+            {
+                try
+                {
+                    windowMatchString = window.Title;
+                    result.AddRange(byTitle.Where(a => a.MatchString != null && CompareString(a.MatchString, windowMatchString, a.IsRegEx)));
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+            if (byFileName.Count != 0)
+            {
+                try
+                {
+                    windowMatchString = window.Process.MainModule.ModuleName;
+                    result.AddRange(byFileName.Where(a => a.MatchString != null && CompareString(a.MatchString, windowMatchString, a.IsRegEx)));
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+            return result.ToArray();
+        }
+
+        private static bool CompareString(string compareMatchString, string windowMatchString, bool useRegEx)
+        {
+            if (string.IsNullOrEmpty(windowMatchString)) return false;
+            return useRegEx
+                ? Regex.IsMatch(windowMatchString, compareMatchString, RegexOptions.Singleline | RegexOptions.IgnoreCase)
+                : string.Equals(windowMatchString.Trim(), compareMatchString.Trim(), StringComparison.CurrentCultureIgnoreCase);
+        }
+
         #endregion
 
         #region P/Invoke
         [DllImport("user32.dll", EntryPoint = "FindWindow")]
         private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
         #endregion
     }
 }

@@ -36,20 +36,17 @@ namespace GestureSign.Common.Plugins
 
         protected PluginManager()
         {
-            // Bind to mouse capture class to execute plugin
-            Gestures.GestureManager.Instance.GestureRecognized += new RecognitionEventHandler(GestureManager_GestureRecognized);
 
-            // Reload plugins if options were saved
         }
 
         #endregion
 
         #region Events
 
-        protected void GestureManager_GestureRecognized(object sender, RecognitionEventArgs e)
+        protected void TouchCapture_GestureRecognized(object sender, Input.RecognitionEventArgs e)
         {
             // Exit if we're teaching
-            if (Configuration.AppConfig.Teaching)
+            if (e.Mode == Input.CaptureMode.Training)
                 return;
 
             // Get action to be executed
@@ -57,7 +54,9 @@ namespace GestureSign.Common.Plugins
             foreach (IAction executableAction in executableActions)
             {
                 // Exit if there is no action configured
-                if (executableAction == null || !executableAction.IsEnabled)
+                if (executableAction == null || !executableAction.IsEnabled ||
+                    (e.Mode == Input.CaptureMode.UserDisabled &&
+                    !"GestureSign.CorePlugins.ToggleDisableGestures".Equals(executableAction.PluginClass)))
                     continue;
 
                 // Locate the plugin associated with this action
@@ -70,7 +69,7 @@ namespace GestureSign.Common.Plugins
                 // Load action settings into plugin
                 pluginInfo.Plugin.Deserialize(executableAction.ActionSettings);
                 // Execute plugin process
-                pluginInfo.Plugin.Gestured(new PointInfo(e.CapturePoints, e.Points));
+                pluginInfo.Plugin.Gestured(new PointInfo(e.LastCapturedPoints, e.Points));
             }
         }
 
@@ -86,15 +85,27 @@ namespace GestureSign.Common.Plugins
             // Clear any existing plugins
             _Plugins = new List<IPluginInfo>();
             //_Plugins.Clear();
-            string path = Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
-            if (path == null) return true;
-            foreach (string sFilePath in Directory.GetFiles(path, "*Plugins.dll"))
+            string directoryPath = Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
+            if (directoryPath == null) return true;
+
+            // Load core plugins.
+            string corePluginsPath = Path.Combine(directoryPath, "GestureSign.CorePlugins.dll");
+            if (File.Exists(corePluginsPath))
             {
-
-                _Plugins.AddRange(LoadPluginsFromAssembly(sFilePath, host));
+                _Plugins.AddRange(LoadPluginsFromAssembly(corePluginsPath, host));
                 bFailed = false;
-
             }
+
+            // Load extra plugins.
+            string extraPlugins = Path.Combine(directoryPath, "Plugins");
+            if (Directory.Exists(extraPlugins))
+                foreach (string sFilePath in Directory.GetFiles(extraPlugins, "*.dll"))
+                {
+
+                    _Plugins.AddRange(LoadPluginsFromAssembly(sFilePath, host));
+                    bFailed = false;
+
+                }
 
 
             return bFailed;
@@ -150,6 +161,9 @@ namespace GestureSign.Common.Plugins
         {
             // Create empty list of plugins, then load as many as possible from plugin directory
             LoadPlugins(host);
+
+            if (host == null) return;
+            host.TouchCapture.GestureRecognized += TouchCapture_GestureRecognized;
         }
 
         #endregion
