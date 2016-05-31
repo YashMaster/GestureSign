@@ -62,8 +62,9 @@ namespace GestureSign.Daemon.Surface
 
         protected void MouseCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
         {
-            if (e.Mode != CaptureMode.UserDisabled &&
-                e.State == CaptureState.Capturing &&
+            var touchCapture = (ITouchCapture)sender;
+            if (touchCapture.Mode != CaptureMode.UserDisabled &&
+                touchCapture.State == CaptureState.Capturing &&
                 AppConfig.VisualFeedbackWidth > 0 &&
                 !(e.Points.Count == 1 && e.Points.First().Count == 1))
             {
@@ -78,7 +79,7 @@ namespace GestureSign.Daemon.Surface
 
         protected void MouseCapture_CaptureEnded(object sender, EventArgs e)
         {
-            if (AppConfig.VisualFeedbackWidth > 0)
+            if (AppConfig.VisualFeedbackWidth > 0 && _lastStroke != null)
                 EndDraw();
         }
 
@@ -90,7 +91,9 @@ namespace GestureSign.Daemon.Surface
 
         private void Instance_CaptureStarted(object sender, PointsCapturedEventArgs e)
         {
-            if (AppConfig.VisualFeedbackWidth <= 0 || e.Mode == CaptureMode.UserDisabled) return;
+            var touchCapture = (ITouchCapture)sender;
+
+            if (AppConfig.VisualFeedbackWidth <= 0 || touchCapture.Mode == CaptureMode.UserDisabled) return;
 
             if (_settingsChanged)
             {
@@ -109,10 +112,10 @@ namespace GestureSign.Daemon.Surface
         public void DrawSegments(List<List<Point>> points)
         {
             // Ensure that surface is visible
-            if (!Visible && !Modal)
+            if (!Visible)
             {
                 TopMost = true;
-                ShowDialog();
+                Show();
             }
             if (_lastStroke == null) { _lastStroke = points.Select(p => p.Count).ToArray(); return; }
             if (_lastStroke.Length != points.Count) return;
@@ -185,7 +188,6 @@ namespace GestureSign.Daemon.Surface
             FormBorderStyle = FormBorderStyle.None;
             Name = "SurfaceForm";
             ShowIcon = false;
-            ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
             Hide();
 
@@ -350,7 +352,7 @@ namespace GestureSign.Daemon.Surface
             {
                 CreateParams myParams = base.CreateParams;
                 myParams.ExStyle = myParams.ExStyle | (int)WindowExStyleFlags.NOACTIVATE |
-                                    (int)WindowExStyleFlags.TRANSPARENT | //To ignore input?
+                                    (int)WindowExStyleFlags.TOOLWINDOW |
                                     (int)WindowExStyleFlags.LAYERED;
                 return myParams;
             }

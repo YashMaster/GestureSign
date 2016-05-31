@@ -30,13 +30,13 @@ Continue to run?
   <About>
     <Header>About</Header>
     <Help>Open the help page</Help>
-    <HelpPageUrl>https://github.com/TransposonY/GestureSign</HelpPageUrl>
+    <HelpPageUrl>http://transposony.github.io/GestureSign/</HelpPageUrl>
     <Version>Version  </Version>
     <ReleaseDate>ReleaseDate  </ReleaseDate>
     <Information>Author:TransposonY
 Translator:TransposonY
 Email:ccfyzh@gmail.com
-Page:https://github.com/TransposonY
+Page:http://transposony.github.io/GestureSign/
     </Information>
   </About>
   <ApplicationDialog>
@@ -164,9 +164,9 @@ Or click the button below to select the running applications.</GetMatchStringTip
     </ExistingGesture>
     <GestureNameWatermark>Please enter gesture name</GestureNameWatermark>
     <NewAction>New Action</NewAction>
+    <OverlayGesture>Overlay Gesture</OverlayGesture>
     <Messages>
-      <GestureExistsTitle>Gesture Conflict</GestureExistsTitle>
-      <GestureExists>The Gesture Name you provided already exists, please provide a different Gesture Name</GestureExists>
+      <GestureExists>The Gesture Name "{0}" already exists, please provide a different Gesture Name</GestureExists>
     </Messages>
   </GestureDefinition>
   <Ignored>
@@ -205,6 +205,7 @@ Or click the button below to select the running applications.</GetMatchStringTip
     <OnLabel>On</OnLabel>
     <OffLabel>Off</OffLabel>
     <Mail>You can also send mail to ccfyzh@gmail.com</Mail>
+    <Timeout>Gesture Timeout (ms)</Timeout>
     <WindowsStartup>
       <Header>Start GestureSign on Windows Startup</Header>
     </WindowsStartup>
@@ -249,6 +250,8 @@ Or click the button below to select the running applications.</GetMatchStringTip
       <Tip>Hot Key(Use keyboard to enter)</Tip>
       <Reset>Reset</Reset>
       <AddExtraKey>(Click to add a extra key)</AddExtraKey>
+      <SendByKeybdEvent>Send By Legacy Method</SendByKeybdEvent>
+      <UnauthorizedAccessException>Insufficient permissions.Please check your virus scanning software settings.</UnauthorizedAccessException>
       <ExtraKeys>
         <BrowserBack>Browser Back key</BrowserBack>
         <BrowserForward>Browser Forward key</BrowserForward>
@@ -347,7 +350,8 @@ Or click the button below to select the running applications.</GetMatchStringTip
       <Category>Keyboard</Category>
       <Show>Show Keyboard</Show>
       <Hide>Hide Keyboard</Hide>
-      <Tip>Tip:To show the Touch Keyboard Button in taskbar can accelerate the pop-up speed in windows 8.</Tip>
+      <Auto>Show/Hide Keyboard</Auto>
+      <Tip>Tip:To show the Touch Keyboard Button in taskbar can accelerate the pop-up speed.</Tip>
     </TouchKeyboard>
     <Volume>
       <Name>Adjust Volume</Name>

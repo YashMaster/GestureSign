@@ -1,24 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.ComponentModel;
-using System.Collections.ObjectModel;
-using System.Threading;
-using System.Windows.Controls.Primitives;
-using System.Windows.Media;
-using GestureSign.Common.Applications;
+﻿using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
-using GestureSign.Common.Plugins;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Plugins;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.Dialogs;
 using MahApps.Metro.Controls.Dialogs;
-
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace GestureSign.ControlPanel.MainWindowControls
 {
@@ -75,7 +75,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 lstAvailableApplication.ScrollIntoView(e.Application);
             };
 
-            ApplicationManager.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.Invoke(BindApplications); };
+            ApplicationManager.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.InvokeAsync(BindApplications); };
 
             if (ApplicationManager.FinishedLoading) BindApplications();
         }
@@ -83,8 +83,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         ObservableCollection<ActionInfo> ActionInfos = new ObservableCollection<ActionInfo>();
         private ObservableCollection<IApplication> _applications = new ObservableCollection<IApplication>();
-        private Task<ActionInfo> _task;
-        CancellationTokenSource _cancelTokenSource;
+        private Task _addActionTask;
         private bool _selecteNewestItem;
         private IApplication _cutActionSource;
         private IAction _actionClipboard;
@@ -225,26 +224,23 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (selectedApplication == null) return;
             if (refreshAll)
             {
-                if (_task != null && _task.Status.HasFlag(TaskStatus.Running))
+                Action<object> refreshAction = (o) =>
+                 {
+                     Dispatcher.Invoke(() => { ActionInfos.Clear(); }, DispatcherPriority.Loaded);
+                     AddActionsToGroup(selectedApplication.Actions);
+                 };
+
+                if (_addActionTask == null)
                 {
-                    _cancelTokenSource.Cancel();
-                    _task.Wait(500);
+                    _addActionTask = Task.Factory.StartNew(refreshAction, null);
                 }
-                ActionInfos.Clear();
-                AddActionsToGroup(selectedApplication.Actions);
+                else _addActionTask = _addActionTask.ContinueWith(refreshAction);
             }
             else
             {
                 _selecteNewestItem = true;
-                var newApp =
-                    selectedApplication.Actions.Where(
-                        a => !ActionInfos.Any
-                            (ai => ai.ActionName.Equals(a.Name, StringComparison.Ordinal))).ToList();
-                var deletedApp =
-                    ActionInfos.Where(
-                        ai =>
-                            !selectedApplication.Actions.Any(a => a.Name.Equals(ai.ActionName, StringComparison.Ordinal)))
-                        .ToList();
+                var newApp = selectedApplication.Actions.Where(a => !ActionInfos.Any(ai => ai.Equals(a))).ToList();
+                var deletedApp = ActionInfos.Where(ai => !selectedApplication.Actions.Any(ai.Equals)).ToList();
 
                 if (newApp.Count == 1 && deletedApp.Count == 1)
                 {
@@ -261,38 +257,27 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 }
             }
         }
+
         private void AddActionsToGroup(List<IAction> actions)
         {
-            _cancelTokenSource = new CancellationTokenSource();
-
-            _task = new Task<ActionInfo>(() =>
+            ActionInfo actionInfo = null;
+            foreach (var currentAction in actions)
             {
-                ActionInfo actionInfo = null;
-                foreach (Applications.Action currentAction in actions)
+                actionInfo = Action2ActionInfo(currentAction);
+
+                var info = actionInfo;
+                Dispatcher.Invoke(() =>
                 {
-                    actionInfo = Action2ActionInfo(currentAction);
+                    ActionInfos.Add(info);
+                }, DispatcherPriority.Input);
+            }
 
-                    if (_cancelTokenSource.IsCancellationRequested) break;
-
-                    lstAvailableApplication.Dispatcher.Invoke(() =>
-                    {
-                        ActionInfos.Add(actionInfo);
-                    });
-                }
-                return actionInfo;
-            }, _cancelTokenSource.Token);
-            _task.ContinueWith((t) =>
-            {
-                ActionInfo ai = t.Result;
-                if (ai != null && _selecteNewestItem)
-                    lstAvailableActions.Dispatcher.Invoke(() =>
-                    {
-                        _selecteNewestItem = false;
-                        SelectAction(ai);
-                    });
-
-            });
-            _task.Start();
+            if (actionInfo != null && _selecteNewestItem)
+                Dispatcher.Invoke(() =>
+                  {
+                      _selecteNewestItem = false;
+                      SelectAction(actionInfo);
+                  });
         }
 
         void RefreshGroup(string gestureName)
@@ -427,22 +412,26 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var listBoxItemParent = UIHelper.GetParentDependencyObject<StackPanel>(firstListBoxItem);
             if (listBoxItemParent == null) return;
             var listBoxItems = listBoxItemParent.Children;
+            string newGestureName = ((GestureItem)e.AddedItems[0]).Name;
+            ActionInfo ai = null;
             foreach (ListBoxItem listBoxItem in listBoxItems)
             {
-                ActionInfo ai = listBoxItem.Content as ActionInfo;
+                ai = listBoxItem.Content as ActionInfo;
                 IApplication app = lstAvailableApplication.SelectedItem as IApplication;
-                if (ai != null && ((GestureItem)e.AddedItems[0]).Name != ai.GestureName)
+                if (ai != null && newGestureName != ai.GestureName)
                 {
                     if (app != null)
                     {
                         IAction action = app.Actions.First(a => a.Name.Equals(ai.ActionName, StringComparison.Ordinal));
-                        ai.GestureName = action.GestureName = ((GestureItem)e.AddedItems[0]).Name;
+                        ai.GestureName = action.GestureName = newGestureName;
 
                         ApplicationManager.Instance.SaveApplications();
                     }
                 }
                 else return;
             }
+            RefreshGroup(newGestureName);
+            SelectAction(ai);
         }
 
         private void ImportActionMenuItem_Click(object sender, RoutedEventArgs e)

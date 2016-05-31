@@ -80,7 +80,8 @@ namespace GestureSign.Common.Applications
 
         protected void TouchCapture_CaptureStarted(object sender, PointsCapturedEventArgs e)
         {
-            if (e.Mode == CaptureMode.Training) return;
+            var touchCapture = (ITouchCapture)sender;
+            if (touchCapture.Mode == CaptureMode.Training) return;
 
             if (Environment.OSVersion.Version.Major == 6)
             {
@@ -297,17 +298,17 @@ namespace GestureSign.Common.Applications
 
         public IApplication GetExistingUserApplication(string ApplicationName)
         {
-            return Applications.FirstOrDefault(a => a is UserApplication && a.Name.ToLower() == ApplicationName.Trim().ToLower()) as UserApplication;
+            return Applications.FirstOrDefault(a => a is UserApplication && a.Name == ApplicationName.Trim());
         }
 
         public bool IsGlobalAction(string ActionName)
         {
-            return _Applications.Exists(a => a is GlobalApplication && a.Actions.Any(ac => ac.Name.ToLower() == ActionName.Trim().ToLower()));
+            return _Applications.Exists(a => a is GlobalApplication && a.Actions.Any(ac => ac.Name == ActionName.Trim()));
         }
 
         public bool ApplicationExists(string ApplicationName)
         {
-            return _Applications.Exists(a => a.Name.ToLower() == ApplicationName.Trim().ToLower());
+            return _Applications.Exists(a => a.Name == ApplicationName.Trim());
         }
 
         public IApplication[] GetAvailableUserApplications()
@@ -365,11 +366,11 @@ namespace GestureSign.Common.Applications
         {
             if (Global)
                 // Attempt to remove action from global actions
-                GetGlobalApplication().RemoveAllActions(a => a.Name.ToLower().Trim() == ActionName.ToLower().Trim());
+                GetGlobalApplication().RemoveAllActions(a => a.Name.Trim() == ActionName.Trim());
             else
                 // Select applications where this action may exist and delete them
                 foreach (IApplication app in GetAvailableUserApplications().Where(a => a.Actions.Any(ac => ac.Name == ActionName)))
-                    app.RemoveAllActions(a => a.Name.ToLower().Trim() == ActionName.ToLower().Trim());
+                    app.RemoveAllActions(a => a.Name.Trim() == ActionName.Trim());
         }
 
         private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window)

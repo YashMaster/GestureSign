@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
+using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows;
+using System.Windows.Threading;
+using GestureSign.Common.Gestures;
 using GestureSign.Common.InterProcessCommunication;
 using GestureSign.ControlPanel.Dialogs;
 using Point = System.Drawing.Point;
@@ -22,7 +25,7 @@ namespace GestureSign.ControlPanel
                     server.CopyTo(memoryStream);
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     object data = binForm.Deserialize(memoryStream);
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         string message = data as string;
                         if (message != null)
@@ -54,13 +57,14 @@ namespace GestureSign.ControlPanel
                         }
                         else
                         {
-                            var newGesture = data as Tuple<string, List<List<Point>>>;
+                            var newGesture = data as Tuple<string, List<List<List<Point>>>>;
                             if (newGesture == null) return;
-                            GestureDefinition gu = new GestureDefinition(newGesture.Item2, newGesture.Item1, false);
+
+                            GestureDefinition gu = new GestureDefinition(new Gesture(newGesture.Item1, newGesture.Item2.Select(list => new PointPattern(list)).ToArray()), false);
                             gu.Show();
                             gu.Activate();
                         }
-                    });
+                    }, DispatcherPriority.Input);
                 }
                 return true;
             }

@@ -32,7 +32,7 @@
   <About>
     <Header>关于</Header>
     <Help>打开帮助页面</Help>
-    <HelpPageUrl>http://git.oschina.net/TransY/GestureSign/wikis/home</HelpPageUrl>
+    <HelpPageUrl>http://transposony.coding.me/GestureSign/</HelpPageUrl>
     <Version>版本：  </Version>
     <ReleaseDate>发布时间：  </ReleaseDate>
     <Information>作者:   TransposonY
@@ -40,8 +40,7 @@
 553078206@qq.com
 
 项目主页:
-OSC:
-http://git.oschina.net/TransY/GestureSign
+http://transposony.coding.me/GestureSign/
     </Information>
   </About>
   <ApplicationDialog>
@@ -169,9 +168,9 @@ http://git.oschina.net/TransY/GestureSign
     </ExistingGesture>
     <GestureNameWatermark>请输入手势图案名称</GestureNameWatermark>
     <NewAction>新建动作</NewAction>
+    <OverlayGesture>叠加手势</OverlayGesture>
     <Messages>
-      <GestureExistsTitle>手势已存在</GestureExistsTitle>
-      <GestureExists>输入的手势名称已存在，请重新输入一个手势名称</GestureExists>
+      <GestureExists>输入的手势名称{0}已存在，请重新输入一个手势名称</GestureExists>
     </Messages>
   </GestureDefinition>
   <Ignored>
@@ -210,6 +209,7 @@ http://git.oschina.net/TransY/GestureSign
     <OnLabel>开</OnLabel>
     <OffLabel>关</OffLabel>
     <Mail>您也可以直接将信息反馈到 553078206@qq.com</Mail>
+    <Timeout>手势超时 (毫秒)</Timeout>
     <WindowsStartup>
       <Header>开机启动</Header>
     </WindowsStartup>
@@ -254,6 +254,8 @@ http://git.oschina.net/TransY/GestureSign
       <Tip>快捷键（请用键盘录入快捷键）</Tip>
       <Reset>重置</Reset>
       <AddExtraKey>(点击添加一个多媒体键)</AddExtraKey>
+      <SendByKeybdEvent>用旧方式发送</SendByKeybdEvent>
+      <UnauthorizedAccessException>权限不足。请检查安全软件设置。</UnauthorizedAccessException>
       <ExtraKeys>
         <BrowserBack>浏览器-后退键</BrowserBack>
         <BrowserForward>浏览器-前进键</BrowserForward>
@@ -353,6 +355,7 @@ http://git.oschina.net/TransY/GestureSign
       <Category>键盘</Category>
       <Show>显示键盘</Show>
       <Hide>隐藏键盘</Hide>
+      <Auto>自动显示或隐藏键盘</Auto>
       <Tip>提示：在任务栏显示“触摸键盘”按钮（任务栏菜单——工具栏——触摸键盘）可加快键盘弹出速度</Tip>
     </TouchKeyboard>
     <Volume>
