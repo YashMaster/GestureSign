@@ -2,11 +2,11 @@
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
-using UserControl = System.Windows.Controls.UserControl;
 
 namespace GestureSign.CorePlugins.MouseActions
 {
@@ -31,9 +31,14 @@ namespace GestureSign.CorePlugins.MouseActions
             get { return GetDescription(); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return _gui ?? (_gui = CreateGUI()); }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
         }
 
         public MouseActionsUI TypedGUI
@@ -50,6 +55,8 @@ namespace GestureSign.CorePlugins.MouseActions
         {
             get { return true; }
         }
+
+        public object Icon => IconSource.Mouse;
 
         #endregion
 
@@ -69,27 +76,56 @@ namespace GestureSign.CorePlugins.MouseActions
             try
             {
                 var referencePoint = GetReferencePoint(_settings.ClickPosition, actionPoint);
+                int buttonId = 1;
+                if (_settings.MouseAction.ToString().Contains('2'))
+                    buttonId = 2;
                 switch (_settings.MouseAction)
                 {
                     case MouseActions.HorizontalScroll:
-                        simulator.Mouse.HorizontalScroll(_settings.ScrollAmount);
+                        simulator.Mouse.HorizontalScroll(_settings.ScrollAmount).Sleep(30);
                         return true;
                     case MouseActions.VerticalScroll:
-                        simulator.Mouse.VerticalScroll(_settings.ScrollAmount);
+                        simulator.Mouse.VerticalScroll(_settings.ScrollAmount).Sleep(30);
                         return true;
                     case MouseActions.MoveMouseTo:
-                        MoveMouse(simulator, _settings.MovePoint);
+                        Cursor.Position = _settings.MovePoint;
                         return true;
                     case MouseActions.MoveMouseBy:
                         referencePoint.Offset(_settings.MovePoint);
-                        MoveMouse(simulator, referencePoint);
+                        Cursor.Position = referencePoint;
+                        break;
+                    case MouseActions.XButton1Click:
+                    case MouseActions.XButton2Click:
+                        if (_settings.ClickPosition != ClickPositions.Original)
+                            Cursor.Position = referencePoint;
+                        simulator.Mouse.XButtonClick(buttonId).Sleep(30);
+                        break;
+                    case MouseActions.XButton1DoubleClick:
+                    case MouseActions.XButton2DoubleClick:
+                        if (_settings.ClickPosition != ClickPositions.Original)
+                            Cursor.Position = referencePoint;
+                        simulator.Mouse.XButtonDoubleClick(buttonId).Sleep(30);
+                        break;
+                    case MouseActions.XButton1Down:
+                    case MouseActions.XButton2Down:
+                        if (_settings.ClickPosition != ClickPositions.Original)
+                            Cursor.Position = referencePoint;
+                        simulator.Mouse.XButtonDown(buttonId).Sleep(30);
+                        break;
+                    case MouseActions.XButton1Up:
+                    case MouseActions.XButton2Up:
+                        if (_settings.ClickPosition != ClickPositions.Original)
+                            Cursor.Position = referencePoint;
+                        simulator.Mouse.XButtonUp(buttonId).Sleep(30);
                         break;
                     default:
                         {
-                            MoveMouse(simulator, referencePoint);
+                            if (_settings.ClickPosition != ClickPositions.Original)
+                                Cursor.Position = referencePoint;
 
                             MethodInfo clickMethod = typeof(IMouseSimulator).GetMethod(_settings.MouseAction.ToString());
                             clickMethod.Invoke(simulator.Mouse, null);
+                            Thread.Sleep(30);
                             break;
                         }
                 }
@@ -121,17 +157,6 @@ namespace GestureSign.CorePlugins.MouseActions
 
         #region Private Methods
 
-        private void MoveMouse(InputSimulator simulator, Point point)
-        {
-            int screenWidth = Screen.PrimaryScreen.Bounds.Width;
-            int screenHeight = Screen.PrimaryScreen.Bounds.Height;
-
-            int realX = 0xffff * point.X / screenWidth;
-            int realY = 0xffff * point.Y / screenHeight;
-
-            simulator.Mouse.MoveMouseTo(realX, realY);
-        }
-
         private Point GetReferencePoint(ClickPositions position, PointInfo actionPoint)
         {
             Point referencePoint;
@@ -150,7 +175,7 @@ namespace GestureSign.CorePlugins.MouseActions
                     referencePoint = actionPoint.Points.First().First();
                     break;
                 default:
-                    referencePoint = Point.Empty;
+                    referencePoint = Cursor.Position;
                     break;
             }
             return referencePoint;
@@ -195,9 +220,10 @@ namespace GestureSign.CorePlugins.MouseActions
                     return LocalizationProvider.Instance.GetTextValue("CorePlugins.MouseActions.Description.MoveMouseTo") + _settings.MovePoint;
             }
 
-            return String.Format("{0} {1}",
-                ClickPositionDescription.DescriptionDict[_settings.ClickPosition],
-                 MouseActionDescription.DescriptionDict[_settings.MouseAction]);
+            var description = _settings.MouseAction.ToString();
+            var button = MouseActionDescription.ButtonDescription[description.Split(MouseActionDescription.DescriptionDict.Keys.ToArray(), StringSplitOptions.RemoveEmptyEntries)[0]];
+            var action = MouseActionDescription.DescriptionDict[description.Split(MouseActionDescription.ButtonDescription.Keys.ToArray(), StringSplitOptions.RemoveEmptyEntries)[0]];
+            return string.Format("{0} {1} {2}", ClickPositionDescription.DescriptionDict[_settings.ClickPosition], action, button);
         }
 
         #endregion

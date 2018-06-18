@@ -1,34 +1,48 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using GestureSign.Common.Configuration;
+﻿using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Log;
 using GestureSign.ControlPanel.Common;
-using MahApps.Metro.Controls;
+using GestureSign.ControlPanel.Dialogs;
 using MahApps.Metro.Controls.Dialogs;
 using Microsoft.Win32;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Security.Principal;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace GestureSign.ControlPanel
 {
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : MetroWindow
+    public partial class MainWindow : TouchWindow
     {
         public MainWindow()
         {
-            Loaded += (e, o) =>
-            {
-                if (ExistsNewerErrorLog() && AppConfig.SendErrorReport)
-                {
-                    SendLog();
-                }
-            };
             InitializeComponent();
+        }
+
+        private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (CheckIfApplicationRunAsAdmin())
+            {
+                var result = MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.CompatWarning"),
+                 LocalizationProvider.Instance.GetTextValue("Messages.CompatWarningTitle"), MessageBoxButton.OK, MessageBoxImage.Warning, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+            }
+            StartDaemon();
             SetAboutInfo();
+
+            if (ExistsNewerErrorLog() && AppConfig.SendErrorReport)
+            {
+                this.Dispatcher.InvokeAsync(SendLog, DispatcherPriority.Input);
+            }
+
+            Activate();
         }
 
         private void SetAboutInfo()
@@ -44,109 +58,175 @@ namespace GestureSign.ControlPanel
 
         private void Hyperlink_Click(object sender, RoutedEventArgs e)
         {
-            Process.Start(LocalizationProvider.Instance.GetTextValue("About.HelpPageUrl"));
+            try
+            {
+                var commandSource = sender as ICommandSource;
+                var uri = commandSource?.CommandParameter as string;
+                if (uri != null)
+                    Process.Start(uri);
+            }
+            catch (Exception exception)
+            {
+                Logging.LogException(exception);
+                MessageBox.Show(exception.Message, LocalizationProvider.Instance.GetTextValue("Messages.Error"));
+            }
+        }
+
+        private void SendFeedback_Click(object sender, RoutedEventArgs e)
+        {
+            SendFeedback();
         }
 
         private bool ExistsNewerErrorLog()
         {
             EventLog logs = new EventLog { Log = "Application" };
+            var now = DateTime.Now;
             var entryCollection = logs.Entries;
-            for (int i = entryCollection.Count - 1; i > entryCollection.Count - 1000 && i >= 0; i--)
+            int logCount = entryCollection.Count;
+            for (int i = logCount - 1; i > logCount - 1000 && i >= 0; i--)
             {
                 var entry = entryCollection[i];
-                if (DateTime.Now.Subtract(entry.TimeWritten).TotalDays > 1)
+                if (now.Subtract(entry.TimeWritten).TotalHours > 1)
                     break;
 
                 if (entry.EntryType == EventLogEntryType.Error && ".NET Runtime".Equals(entry.Source) &&
                     entry.Message.IndexOf("GestureSign", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    DateTime lastTime = AppConfig.LastErrorTime;
-                    AppConfig.LastErrorTime = entry.TimeWritten;
-                    AppConfig.Save();
+                    bool hasNewLog = AppConfig.LastErrorTime.CompareTo(entry.TimeWritten) < 0;
+                    if (hasNewLog)
+                    {
+                        AppConfig.LastErrorTime = entry.TimeWritten;
+                    }
 
-                    return lastTime.CompareTo(entry.TimeWritten) < 0;
+                    return hasNewLog;
                 }
             }
             return false;
         }
 
-        private async void SendLog()
+        private void SendLog()
         {
-            var dialogResult = await this.ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendLogTitle"),
+            var dialogResult = this.ShowModalMessageExternal(LocalizationProvider.Instance.GetTextValue("About.SendLogTitle"),
             LocalizationProvider.Instance.GetTextValue("Messages.FindNewErrorLog"),
-            MessageDialogStyle.AffirmativeAndNegativeAndSingleAuxiliary, new MetroDialogSettings()
+            MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
             {
-                AnimateHide = false,
-                AnimateShow = false,
-                AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.SendButton"),
-                NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.DontSendButton"),
-                FirstAuxiliaryButtonText = LocalizationProvider.Instance.GetTextValue("Messages.ShowLog"),
+                AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("About.SendButton"),
+                NegativeButtonText = LocalizationProvider.Instance.GetTextValue("About.DontSendButton"),
             });
             if (dialogResult == MessageDialogResult.Negative) return;
+            SendFeedback();
+        }
 
+        private async void SendFeedback()
+        {
             var controller =
-                await (this).ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("Options.Waiting"),
-                    LocalizationProvider.Instance.GetTextValue("Options.Exporting"));
+                await this.ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("About.Waiting"),
+                            LocalizationProvider.Instance.GetTextValue("About.Exporting"));
             controller.SetIndeterminate();
 
-            StringBuilder result = new StringBuilder();
-            await Task.Run(() =>
+            string result = await Task.Factory.StartNew(() =>
             {
-                ErrorReport.OutputLog(ref result);
+                return Feedback.OutputLog();
             });
             await controller.CloseAsync();
 
-            if (dialogResult == MessageDialogResult.FirstAuxiliary)
+            LogWindow logWin = new LogWindow(result);
+            var dialogResult = logWin.ShowDialog();
+            string msg = logWin.Message;
+
+            while (dialogResult != null && dialogResult.Value)
             {
-                string logPath = Path.Combine(Path.GetTempPath(), "GestureSign" + DateTime.Now.ToString("yyyyMMddhhmmss") + ".log");
+                var sendReportTask = Task.Factory.StartNew(() => Feedback.Send(result, msg));
 
-                File.WriteAllText(logPath, result.ToString());
-                Process.Start("notepad.exe", logPath);
-
-                dialogResult = await this.ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendLogTitle"),
-                    LocalizationProvider.Instance.GetTextValue("Options.SendLog"),
-                    MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
-                    {
-                        AnimateHide = false,
-                        AnimateShow = false,
-                        AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.SendButton"),
-                        NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.DontSendButton"),
-                    });
-            }
-
-            while (dialogResult == MessageDialogResult.Affirmative)
-            {
-                controller = await this.ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("Options.Waiting"),
-                    LocalizationProvider.Instance.GetTextValue("Options.Sending"));
+                controller = await this.ShowProgressAsync(LocalizationProvider.Instance.GetTextValue("About.Waiting"),
+                        LocalizationProvider.Instance.GetTextValue("About.Sending"));
                 controller.SetIndeterminate();
 
-                string exceptionMessage = await Task.Run(() => ErrorReport.SendMail("Error Log", result.ToString()));
+                string exceptionMessage = await sendReportTask;
 
                 await controller.CloseAsync();
 
                 if (exceptionMessage == null)
                 {
-                    await (this)
-                        .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendSuccessTitle"),
-                            LocalizationProvider.Instance.GetTextValue("Options.SendSuccess"), settings: new MetroDialogSettings()
-                            {
-                                AnimateHide = false,
-                                AnimateShow = false,
-                            });
+                    this.ShowModalMessageExternal(LocalizationProvider.Instance.GetTextValue("About.SendSuccessTitle"),
+                            LocalizationProvider.Instance.GetTextValue("About.SendSuccess"));
                     break;
                 }
                 else
                 {
-                    dialogResult = await this.ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Options.SendFailed"),
-                        LocalizationProvider.Instance.GetTextValue("Options.SendFailed") + ":\r\n" + exceptionMessage,
-                        MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
-                        {
-                            AnimateHide = false,
-                            AnimateShow = false,
-                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Options.Retry"),
-                        });
+                    dialogResult =
+                        this.ShowModalMessageExternal(LocalizationProvider.Instance.GetTextValue("About.SendFailed"),
+                                exceptionMessage + Environment.NewLine + LocalizationProvider.Instance.GetTextValue("About.Mail"),
+                                MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
+                                {
+                                    AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("About.Retry"),
+                                    NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
+                                }) == MessageDialogResult.Affirmative;
                 }
             }
+        }
+
+        private bool CheckIfApplicationRunAsAdmin()
+        {
+            string controlPanelRecord;
+            string daemonRecord;
+            using (RegistryKey layers = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
+            {
+                string controlPanelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSign.exe");
+                string daemonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSignDaemon.exe");
+
+                controlPanelRecord = layers?.GetValue(controlPanelPath) as string;
+                daemonRecord = layers?.GetValue(daemonPath) as string;
+            }
+
+            return controlPanelRecord != null && controlPanelRecord.ToUpper().Contains("RUNASADMIN") ||
+                   daemonRecord != null && daemonRecord.ToUpper().Contains("RUNASADMIN");
+        }
+
+        private void StartDaemon()
+        {
+            string daemonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSignDaemon.exe");
+            if (!File.Exists(daemonPath))
+            {
+                MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.CannotFindDaemonMessage"),
+                    LocalizationProvider.Instance.GetTextValue("Messages.Error"), MessageBoxButton.OK,
+                    MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+                return;
+            }
+
+            bool createdNewDaemon;
+            using (new Mutex(false, "GestureSignDaemon", out createdNewDaemon))
+            {
+            }
+            if (createdNewDaemon)
+            {
+                try
+                {
+                    using (Process daemon = new Process())
+                    {
+                        daemon.StartInfo.FileName = daemonPath;
+
+                        //daemon.StartInfo.UseShellExecute = false;
+                        if (IsAdministrator())
+                            daemon.StartInfo.Verb = "runas";
+                        daemon.StartInfo.CreateNoWindow = false;
+                        daemon.Start();
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logging.LogException(e);
+                    MessageBox.Show(string.Format(e.Message + Environment.NewLine + LocalizationProvider.Instance.GetTextValue("Messages.StartupError"), daemonPath),
+                        LocalizationProvider.Instance.GetTextValue("Messages.Error"), MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK, MessageBoxOptions.DefaultDesktopOnly);
+                }
+            }
+        }
+
+        private bool IsAdministrator()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
     }
 }

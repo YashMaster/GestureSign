@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO.Pipes;
 using System.Threading;
-using GestureSign.Common;
 using GestureSign.Common.Input;
 using GestureSign.Common.InterProcessCommunication;
+using GestureSign.Common.Log;
 
 namespace GestureSign.Daemon.Input
 {
@@ -22,36 +22,38 @@ namespace GestureSign.Daemon.Input
 
         public bool ProcessMessages(NamedPipeServerStream server)
         {
+            const int size = 16;
             try
             {
                 //BinaryReader would throw EndOfStreamException
 
-                byte[] buffer = new byte[4];
-                if (server.Read(buffer, 0, 4) == 0)
+                byte[] buffer = new byte[8];
+                if (server.Read(buffer, 0, buffer.Length) == 0)
                     return false;
 
                 int count = BitConverter.ToInt32(buffer, 0);
-                var rawTouchDatas = new List<RawTouchData>(count);
+                //Connection test
+                if (count < 1)
+                    return true;
+                Devices source = (Devices)BitConverter.ToInt32(buffer, 4);
+
+                buffer = new byte[size * count];
+                var rawTouchDatas = new List<RawData>(count);
+                server.Read(buffer, 0, buffer.Length);
+
                 for (int i = 0; i < count; i++)
                 {
-                    buffer = new byte[13];
+                    int state = BitConverter.ToInt32(buffer, size * i);
+                    int contactIdentifier = BitConverter.ToInt32(buffer, size * i + 4);
+                    int x = BitConverter.ToInt32(buffer, size * i + 8);
+                    int y = BitConverter.ToInt32(buffer, size * i + 12);
 
-                    server.Read(buffer, 0, 1);
-                    server.Read(buffer, 1, 4);
-                    server.Read(buffer, 5, 4);
-                    server.Read(buffer, 9, 4);
-
-                    bool tip = BitConverter.ToBoolean(buffer, 0);
-                    int contactIdentifier = BitConverter.ToInt32(buffer, 1);
-                    int x = BitConverter.ToInt32(buffer, 5);
-                    int y = BitConverter.ToInt32(buffer, 9);
-
-                    rawTouchDatas.Add(new RawTouchData(tip, contactIdentifier, new Point(x, y)));
+                    rawTouchDatas.Add(new RawData((DeviceStates)state, contactIdentifier, new Point(x, y)));
                 }
 
                 _synchronizationContext.Post(o =>
                 {
-                    PointsIntercepted?.Invoke(this, new RawPointsDataMessageEventArgs(rawTouchDatas));
+                    PointsIntercepted?.Invoke(this, new RawPointsDataMessageEventArgs(rawTouchDatas, source));
                 }, null);
             }
             catch (Exception exception)

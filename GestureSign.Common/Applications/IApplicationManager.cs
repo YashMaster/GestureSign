@@ -7,7 +7,6 @@ namespace GestureSign.Common.Applications
 {
     public interface IApplicationManager
     {
-        event ApplicationChangedEventHandler ApplicationChanged;
         bool ApplicationExists(string ApplicationName);
         List<IApplication> Applications { get; }
         SystemWindow CaptureWindow { get; }
@@ -17,13 +16,11 @@ namespace GestureSign.Common.Applications
         IEnumerable<IApplication> GetApplicationFromPoint(Point testPoint);
         IApplication[] GetApplicationFromWindow(SystemWindow Window, bool userApplicationOnly);
         IApplication[] GetAvailableUserApplications();
-        IEnumerable<IAction> GetEnabledDefinedAction(string GestureName, IEnumerable<IApplication> Application, bool UseGlobal);
+        IEnumerable<IAction> GetDefinedAction(string GestureName, IEnumerable<IApplication> Application, bool UseGlobal);
         IApplication GetExistingUserApplication(string ApplicationName);
         IApplication GetGlobalApplication();
         SystemWindow GetWindowFromPoint(Point Point);
-        Task<bool> LoadApplications();
-        void RemoveGlobalAction(string ActionName);
-        void RemoveNonGlobalAction(string ActionName);
+        Task LoadApplications();
         bool SaveApplications();
     }
 }

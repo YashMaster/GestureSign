@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using GestureSign.Common.Plugins;
+﻿using GestureSign.Common.Plugins;
 using ManagedWinapi.Windows;
-
-using System.Windows.Controls;
 using GestureSign.Common.Localization;
 
 namespace GestureSign.CorePlugins
@@ -30,9 +24,14 @@ namespace GestureSign.CorePlugins
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.Minimize.Description"); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return null; }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
         }
 
         public string Category
@@ -44,6 +43,8 @@ namespace GestureSign.CorePlugins
         {
             get { return true; }
         }
+
+        public object Icon => IconSource.Minimize;
 
         #endregion
 
@@ -65,9 +66,9 @@ namespace GestureSign.CorePlugins
             {
                 var className = ActionPoint.Window.ClassName;
                 // Don't attempt to minimize tool windows (including Windows Program Manager)
-                if (className.Equals("Windows.UI.Core.CoreWindow") ||
-                   className.Equals("ImmersiveBackgroundWindow") ||
-                   className.Equals("ImmersiveLauncher") ||
+                if ("Windows.UI.Core.CoreWindow".Equals(className) ||
+                   "ImmersiveBackgroundWindow".Equals(className) ||
+                   "ImmersiveLauncher".Equals(className) ||
                    (ActionPoint.Window.ExtendedStyle & WindowExStyleFlags.TOOLWINDOW) == WindowExStyleFlags.TOOLWINDOW)
                     return false;
 

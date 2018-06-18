@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using ManagedWinapi.Windows;
 
 namespace GestureSign.Common.Plugins
@@ -9,48 +10,49 @@ namespace GestureSign.Common.Plugins
     {
         #region Private Variables
 
-        private List<Point> _touchLocation;
-        private IntPtr _windowHandle;
+        private List<Point> _pointLocation;
         private SystemWindow _window;
+        private SynchronizationContext _syncContext;
 
         #endregion
 
         #region Constructors
 
-        public PointInfo(List<Point> touchLocation, List<List<Point>> points)
+        public PointInfo(List<Point> pointLocation, List<List<Point>> points, SynchronizationContext syncContext)
         {
-            _touchLocation = touchLocation;
-            _window = SystemWindow.FromPointEx(_touchLocation[0].X, _touchLocation[0].Y, true, false);
-            _windowHandle = _window == null ? IntPtr.Zero : _window.HWnd;
+            _pointLocation = pointLocation;
             Points = points;
+            _syncContext = syncContext;
         }
 
         #endregion
 
         #region Public Properties
 
-        public List<Point> TouchLocation
+        public List<Point> PointLocation
         {
-            get { return _touchLocation; }
+            get { return _pointLocation; }
             set
             {
-                _touchLocation = value;
-                _window = SystemWindow.FromPointEx(value[0].X, value[0].Y, true, false);
-                _windowHandle = _window.HWnd;
+                _pointLocation = value;
             }
         }
 
-        public IntPtr WindowHandle
-        {
-            get { return _windowHandle; }
-        }
+        public IntPtr WindowHandle => _window?.HWnd ?? IntPtr.Zero;
 
-        public SystemWindow Window
-        {
-            get { return _window; }
-        }
+        public SystemWindow Window => _window ?? (_window = SystemWindow.FromPointEx(_pointLocation[0].X, _pointLocation[0].Y, true, false));
 
         public List<List<Point>> Points { get; set; }
+
+        #endregion
+
+        #region Public Methods
+
+        public void Invoke(Action action)
+        {
+            _syncContext.Send((o) => action.Invoke(), null);
+        }
+
         #endregion
     }
 }

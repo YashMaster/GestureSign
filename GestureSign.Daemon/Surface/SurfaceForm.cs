@@ -5,9 +5,9 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using GestureSign.Common;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Input;
+using GestureSign.Common.Log;
 using GestureSign.Daemon.Input;
 using GestureSign.Daemon.Native;
 using ManagedWinapi.Windows;
@@ -37,53 +37,90 @@ namespace GestureSign.Daemon.Surface
         private const byte AC_SRC_ALPHA = 0x01;
         #endregion
 
+        #region Public Instance Properties
+
+        public static SurfaceForm Instance { get; }
+
+        #endregion
+
         #region Constructors
+
+        static SurfaceForm()
+        {
+            Instance = new SurfaceForm();
+        }
 
         public SurfaceForm()
         {
             InitializeForm();
 
-            TouchCapture.Instance.PointCaptured += MouseCapture_PointCaptured;
-            TouchCapture.Instance.CaptureEnded += MouseCapture_CaptureEnded;
-            TouchCapture.Instance.CaptureCanceled += MouseCapture_CaptureCanceled;
-            TouchCapture.Instance.CaptureStarted += Instance_CaptureStarted;
-            AppConfig.ConfigChanged += (o, e) => { ResetSurface(); };
+            PointCapture.Instance.PointCaptured += PointCapture_PointCaptured;
+            PointCapture.Instance.CaptureEnded += PointCapture_CaptureEnded;
+            PointCapture.Instance.CaptureCanceled += PointCapture_CaptureCanceled;
+            PointCapture.Instance.CaptureStarted += Instance_CaptureStarted;
+            AppConfig.ConfigChanged += AppConfig_ConfigChanged;
             // Respond to system event changes by reinitializing the form
-            SystemEvents.DisplaySettingsChanged += (o, e) => { ResetSurface(); };
-            SystemEvents.UserPreferenceChanged += (o, e) => { ResetSurface(); };
+            SystemEvents.DisplaySettingsChanged += AppConfig_ConfigChanged;
+            SystemEvents.UserPreferenceChanged += AppConfig_ConfigChanged;
             //this.SetStyle(ControlStyles.DoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
             //this.UpdateStyles();
         }
 
+        #endregion
+
+        #region Dispose
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!IsDisposed)
+            {
+                if (disposing)
+                {
+                    PointCapture.Instance.PointCaptured -= PointCapture_PointCaptured;
+                    PointCapture.Instance.CaptureEnded -= PointCapture_CaptureEnded;
+                    PointCapture.Instance.CaptureCanceled -= PointCapture_CaptureCanceled;
+                    PointCapture.Instance.CaptureStarted -= Instance_CaptureStarted;
+
+                    AppConfig.ConfigChanged -= AppConfig_ConfigChanged;
+                    SystemEvents.DisplaySettingsChanged -= AppConfig_ConfigChanged;
+                    SystemEvents.UserPreferenceChanged -= AppConfig_ConfigChanged;
+                }
+
+                _bitmap?.Dispose();
+                _graphicsPath?.Dispose();
+                _dirtyGraphicsPath?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
 
         #endregion
 
         #region Events
 
-        protected void MouseCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
+        protected void PointCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
         {
-            var touchCapture = (ITouchCapture)sender;
-            if (touchCapture.Mode != CaptureMode.UserDisabled &&
-                touchCapture.State == CaptureState.Capturing &&
+            var pointCapture = (IPointCapture)sender;
+            if (pointCapture.Mode != CaptureMode.UserDisabled &&
+                pointCapture.State == CaptureState.Capturing &&
                 AppConfig.VisualFeedbackWidth > 0 &&
                 !(e.Points.Count == 1 && e.Points.First().Count == 1))
             {
                 if (_bitmap == null || _lastStroke == null)
                 {
                     ClearSurfaces();
-                    _bitmap = new DiBitmap(Screen.PrimaryScreen.Bounds.Size);
+                    _bitmap = new DiBitmap(this.Size);
                 }
                 DrawSegments(e.Points);
             }
         }
 
-        protected void MouseCapture_CaptureEnded(object sender, EventArgs e)
+        protected void PointCapture_CaptureEnded(object sender, EventArgs e)
         {
             if (AppConfig.VisualFeedbackWidth > 0 && _lastStroke != null)
                 EndDraw();
         }
 
-        protected void MouseCapture_CaptureCanceled(object sender, PointsCapturedEventArgs e)
+        protected void PointCapture_CaptureCanceled(object sender, PointsCapturedEventArgs e)
         {
             if (AppConfig.VisualFeedbackWidth > 0)
                 EndDraw();
@@ -91,9 +128,9 @@ namespace GestureSign.Daemon.Surface
 
         private void Instance_CaptureStarted(object sender, PointsCapturedEventArgs e)
         {
-            var touchCapture = (ITouchCapture)sender;
+            var pointCapture = (IPointCapture)sender;
 
-            if (AppConfig.VisualFeedbackWidth <= 0 || touchCapture.Mode == CaptureMode.UserDisabled) return;
+            if (AppConfig.VisualFeedbackWidth <= 0 || pointCapture.Mode == CaptureMode.UserDisabled) return;
 
             if (_settingsChanged)
             {
@@ -104,10 +141,19 @@ namespace GestureSign.Daemon.Surface
             ClearSurfaces();
         }
 
+        private void AppConfig_ConfigChanged(object sender, EventArgs e)
+        {
+            ResetSurface();
+        }
+
         #endregion
 
         #region Public Methods
 
+        public new void Load()
+        {
+
+        }
 
         public void DrawSegments(List<List<Point>> points)
         {
@@ -117,7 +163,7 @@ namespace GestureSign.Daemon.Surface
                 TopMost = true;
                 Show();
             }
-            if (_lastStroke == null) { _lastStroke = points.Select(p => p.Count).ToArray(); return; }
+            if (_lastStroke == null) { _lastStroke = Enumerable.Repeat(0, points.Count).ToArray(); }
             if (_lastStroke.Length != points.Count) return;
             try
             {
@@ -133,7 +179,7 @@ namespace GestureSign.Daemon.Surface
 
                     var iDelta = points[i].Count - _lastStroke[i] + 1;
 
-                    newPoints.AddRange(points[i].Skip(points[i].Count() - iDelta).Take(iDelta));
+                    newPoints.AddRange(points[i].Skip(points[i].Count - iDelta).Take(iDelta));
                     if (newPoints.Count < 2) continue;
 
                     var translatedPoints = newPoints.Select(TranslatePoint).ToArray();
@@ -215,7 +261,12 @@ namespace GestureSign.Daemon.Surface
             _drawingPen.StartCap = _drawingPen.EndCap = LineCap.Round;
             _drawingPen.LineJoin = LineJoin.Round;
 
-            _shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), (_drawingPen.Width + 4f)) { EndCap = LineCap.Round, StartCap = LineCap.Round };
+            _shadowPen = new Pen(Color.FromArgb(30, 0, 0, 0), _drawingPen.Width + 4f)
+            {
+                EndCap = LineCap.Round,
+                StartCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
 
             _dirtyMarkerPen = (Pen)_shadowPen.Clone();
             _dirtyMarkerPen.Width *= 1.5f;
@@ -351,8 +402,9 @@ namespace GestureSign.Daemon.Surface
             get
             {
                 CreateParams myParams = base.CreateParams;
-                myParams.ExStyle = myParams.ExStyle | (int)WindowExStyleFlags.NOACTIVATE |
+                myParams.ExStyle = (int)WindowExStyleFlags.NOACTIVATE |
                                     (int)WindowExStyleFlags.TOOLWINDOW |
+                                    (int)WindowExStyleFlags.TRANSPARENT |
                                     (int)WindowExStyleFlags.LAYERED;
                 return myParams;
             }

@@ -39,19 +39,12 @@ namespace GestureSign.Daemon
                     {
                         switch (message)
                         {
-                            //case "Guide":
-                            //    GestureSignDaemon.Input.TouchCapture.Instance.MessageWindow.PointsIntercepted += InitializationRatio.MessageWindow_PointsIntercepted;
-                            //    break;
                             case "StartTeaching":
-                                {
-                                    TouchCapture.Instance.Mode = CaptureMode.Training;
-                                    break;
-                                }
-                            case "EnableTouchCapture":
-                                TouchCapture.Instance.EnableTouchCapture();
+                                PointCapture.Instance.Mode = CaptureMode.Training;
                                 break;
-                            case "DisableTouchCapture":
-                                TouchCapture.Instance.DisableTouchCapture();
+                            case "StopTraining":
+                                if (PointCapture.Instance.Mode != CaptureMode.UserDisabled)
+                                    PointCapture.Instance.Mode = CaptureMode.Normal;
                                 break;
                             case "LoadApplications":
                                 ApplicationManager.Instance.LoadApplications().Wait();
@@ -67,9 +60,6 @@ namespace GestureSign.Daemon
                                 break;
                             case "HideTrayIcon":
                                 TrayManager.Instance.TrayIconVisible = false;
-                                break;
-                            case "OverlayGesture":
-                                TouchCapture.Instance.OverlayGesture = true;
                                 break;
                         }
                     }, null);

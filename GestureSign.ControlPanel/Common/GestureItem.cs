@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using GestureSign.Common.Gestures;
 
 namespace GestureSign.ControlPanel.Common
 {
     public class GestureItem
     {
-        public string Name { get; set; }
-        public System.Windows.Media.ImageSource Image { get; set; }
+        public IGesture Gesture { get; set; }
+        public string Applications { get; set; }
     }
 }

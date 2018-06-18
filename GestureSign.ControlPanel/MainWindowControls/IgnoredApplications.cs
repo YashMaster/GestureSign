@@ -1,14 +1,17 @@
-﻿using System;
+﻿using GestureSign.Common.Applications;
+using GestureSign.Common.Configuration;
+using GestureSign.Common.Gestures;
+using GestureSign.ControlPanel.Common;
+using GestureSign.ControlPanel.Dialogs;
+using IWshRuntimeLibrary;
+using MahApps.Metro.Controls.Dialogs;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-
-using GestureSign.Common.Applications;
-using GestureSign.Common.Configuration;
-using GestureSign.Common.Localization;
-using GestureSign.ControlPanel.Dialogs;
+using System.Windows.Threading;
 
 namespace GestureSign.ControlPanel.MainWindowControls
 {
@@ -20,47 +23,30 @@ namespace GestureSign.ControlPanel.MainWindowControls
         public IgnoredApplications()
         {
             InitializeComponent();
-            ApplicationDialog.IgnoredApplicationsChanged += ApplicationsFlyout_BindIgnoredApplications;
-
-            ApplicationManager.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.InvokeAsync(BindIgnoredApplications); };
-
-            if (ApplicationManager.FinishedLoading) BindIgnoredApplications();
         }
 
-        void ApplicationsFlyout_BindIgnoredApplications(object sender, EventArgs e)
+        private void UserControl_Initialized(object sender, EventArgs eArgs)
         {
-            BindIgnoredApplications();
-        }
-
-        private void BindIgnoredApplications()
-        {
-            this.lstIgnoredApplications.ItemsSource = null;
-            var lstApplications = ApplicationManager.Instance.GetIgnoredApplications().ToList();
-
-
-            var sourceView = new ListCollectionView(lstApplications);//创建数据源的视图
-
-            var groupDesctrption = new PropertyGroupDescription("MatchUsing");//设置分组列
-
-            sourceView.GroupDescriptions.Add(groupDesctrption);//在图中添加分组
-            this.lstIgnoredApplications.ItemsSource = sourceView;//绑定数据源
+            ApplicationManager.Instance.CollectionChanged += (o, e) =>
+            {
+                if (e.NewItems != null && e.NewItems.Count > 0 && e.NewItems[0] is IgnoredApp)
+                    lstIgnoredApplications.SelectedItem = (IApplication)e.NewItems[0];
+            };
         }
 
         private void btnDeleteIgnoredApp_Click(object sender, RoutedEventArgs e)
         {
-            foreach (IgnoredApplication lvItem in this.lstIgnoredApplications.SelectedItems)
-                ApplicationManager.Instance.RemoveIgnoredApplications(lvItem.Name);
+            var ignoredApps = lstIgnoredApplications.SelectedItems.Cast<IgnoredApp>().ToList();
+            foreach (var app in ignoredApps)
+            {
+                ApplicationManager.Instance.RemoveApplication(app);
+            }
             ApplicationManager.Instance.SaveApplications();
-            BindIgnoredApplications();
         }
 
         private void btnEditIgnoredApp_Click(object sender, RoutedEventArgs e)
         {
-            IgnoredApplication ia = this.lstIgnoredApplications.SelectedItem as IgnoredApplication;
-            if (ia == null) return;
-
-            ApplicationDialog applicationDialog = new ApplicationDialog(ia);
-            applicationDialog.ShowDialog();
+            EditIgnoredApp();
         }
 
         private void btnAddIgnoredApp_Click(object sender, RoutedEventArgs e)
@@ -82,74 +68,112 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void EnabledIgnoredAppCheckBoxs_Click(object sender, RoutedEventArgs e)
         {
             bool isChecked = (sender as CheckBox).IsChecked.Value;
-            foreach (IgnoredApplication ia in this.lstIgnoredApplications.Items)
+            foreach (IgnoredApp ia in this.lstIgnoredApplications.Items)
                 ia.IsEnabled = isChecked;
-        }
-
-        private void IgnoredAppCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            (ApplicationManager.Instance.Applications.Find(app => app.Name == ((CheckBox)sender).Tag as string)
-                as IgnoredApplication).IsEnabled = true;
             ApplicationManager.Instance.SaveApplications();
         }
 
-        private void IgnoredAppCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        private void IgnoredAppCheckBox_Click(object sender, RoutedEventArgs e)
         {
-            (ApplicationManager.Instance.Applications.Find(app => app.Name == ((CheckBox)sender).Tag as string)
-                as IgnoredApplication).IsEnabled = false;
             ApplicationManager.Instance.SaveApplications();
         }
 
-        private void ImportIgnoredAppsMenuItem_Click(object sender, RoutedEventArgs e)
+        private void ExportIgnoredButton_Click(object sender, RoutedEventArgs e)
         {
-            Microsoft.Win32.OpenFileDialog ofdApplications = new Microsoft.Win32.OpenFileDialog()
+            ExportImportDialog exportImportDialog = new ExportImportDialog(true, true, ApplicationManager.Instance.Applications, GestureSign.Common.Gestures.GestureManager.Instance.Gestures);
+            exportImportDialog.ShowDialog();
+        }
+
+        private void DownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            DownloadWindow DownloadWindow = new DownloadWindow();
+            DownloadWindow.Show();
+        }
+
+        private void lstIgnoredApplications_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (UIHelper.GetParentDependencyObject<ListViewItem>((DependencyObject)e.OriginalSource) == null)
+                return;
+            Dispatcher.InvokeAsync(EditIgnoredApp, DispatcherPriority.Input);
+        }
+
+        private void EditIgnoredApp()
+        {
+            var ia = this.lstIgnoredApplications.SelectedItem as IgnoredApp;
+            if (ia == null) return;
+
+            ApplicationDialog applicationDialog = new ApplicationDialog(ia);
+            applicationDialog.ShowDialog();
+        }
+
+        protected override void OnDrop(DragEventArgs e)
+        {
+            base.OnDrop(e);
+
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                Filter = LocalizationProvider.Instance.GetTextValue("Ignored.IgnoredAppFile") + "|*.json;*.ign",
-                Title = LocalizationProvider.Instance.GetTextValue("Ignored.ImportIgnoredApps"),
-                CheckFileExists = true
-            };
-            if (ofdApplications.ShowDialog().Value)
-            {
-                int addcount = 0;
-                List<IApplication> newApps = System.IO.Path.GetExtension(ofdApplications.FileName).Equals(".ign", StringComparison.OrdinalIgnoreCase) ?
-                    FileManager.LoadObject<List<IApplication>>(ofdApplications.FileName, false, true) :
-                    FileManager.LoadObject<List<IApplication>>(ofdApplications.FileName, new Type[] { typeof(GlobalApplication), typeof(UserApplication), typeof(IgnoredApplication), typeof(Applications.Action) }, false);
-                if (newApps != null)
-                    foreach (IApplication newApp in newApps)
+                var newApps = new List<IApplication>();
+                var newGestures = GestureManager.Instance.Gestures.ToList();
+                try
+                {
+                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    foreach (var file in files)
                     {
-                        if (newApp is IgnoredApplication &&
-                            !ApplicationManager.Instance.ApplicationExists(newApp.Name))
+                        switch (Path.GetExtension(file).ToLower())
                         {
-                            ApplicationManager.Instance.AddApplication(newApp);
-                            addcount++;
+                            case GestureSign.Common.Constants.ActionExtension:
+                                var apps = FileManager.LoadObject<List<IApplication>>(file, false, true);
+                                if (apps != null)
+                                {
+                                    newApps.AddRange(apps);
+                                }
+                                break;
+                            case ".exe":
+                                Dispatcher.InvokeAsync(() => lstIgnoredApplications.SelectedItem = ApplicationManager.Instance.AddApplication(new IgnoredApp() { IsEnabled = true }, file), DispatcherPriority.Input);
+                                break;
+                            case ".lnk":
+                                WshShell shell = new WshShell();
+                                IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
+                                if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                {
+                                    Dispatcher.InvokeAsync(() => lstIgnoredApplications.SelectedItem = ApplicationManager.Instance.AddApplication(new IgnoredApp() { IsEnabled = true }, link.TargetPath), DispatcherPriority.Input);
+                                }
+                                break;
+                            case GestureSign.Common.Constants.ArchivesExtension:
+                                {
+                                    IEnumerable<IApplication> applications;
+                                    IEnumerable<IGesture> gestures;
+                                    Common.Archive.LoadFromArchive(file, out applications, out gestures);
+
+                                    if (applications != null)
+                                        newApps.AddRange(applications);
+                                    if (gestures != null)
+                                    {
+                                        foreach (var gesture in gestures)
+                                        {
+                                            if (newGestures.Find(g => g.Name == gesture.Name) == null)
+                                                newGestures.Add(gesture);
+                                        }
+                                    }
+                                    break;
+                                }
                         }
                     }
-                if (addcount != 0)
-                {
-                    BindIgnoredApplications();
-                    ApplicationManager.Instance.SaveApplications();
                 }
-                MessageBox.Show(
-                    String.Format(LocalizationProvider.Instance.GetTextValue("Ignored.Messages.ImportComplete"),
-                        addcount),
-                    LocalizationProvider.Instance.GetTextValue("Ignored.Messages.ImportCompleteTitle"));
+                catch (Exception exception)
+                {
+                    Common.UIHelper.GetParentWindow(this).ShowModalMessageExternal(exception.GetType().Name, exception.Message);
+                }
+                if (newApps.Count != 0)
+                {
+                    Dispatcher.InvokeAsync(() =>
+                    {
+                        ExportImportDialog exportImportDialog = new ExportImportDialog(false, true, newApps, newGestures);
+                        exportImportDialog.ShowDialog();
+                    }, System.Windows.Threading.DispatcherPriority.Background);
+                }
             }
-        }
-
-        private void ExportIgnoredAppsMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.SaveFileDialog sfdApplications = new Microsoft.Win32.SaveFileDialog()
-            {
-                Filter = LocalizationProvider.Instance.GetTextValue("Ignored.IgnoredAppFile") + "|*.ign",
-                Title = LocalizationProvider.Instance.GetTextValue("Ignored.ExportIgnoredApps"),
-                AddExtension = true,
-                DefaultExt = "ign",
-                ValidateNames = true
-            };
-            if (sfdApplications.ShowDialog().Value)
-            {
-                FileManager.SaveObject(ApplicationManager.Instance.Applications.Where(app => (app is IgnoredApplication)).ToList(), sfdApplications.FileName, true);
-            }
+            e.Handled = true;
         }
     }
 }

@@ -9,30 +9,28 @@
              d:DesignWidth="310">
     <Grid>
         <TextBlock HorizontalAlignment="Left"
-                   Margin="10,10,0,0"
                    TextWrapping="Wrap"
                    Text="{localization:LocalisedText CorePlugins.RunCommand.Command}"
-                   VerticalAlignment="Top" />
+                   VerticalAlignment="Top"
+                   FontSize="14" />
+        <ComboBox x:Name="VariableComboBox"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  FontSize="14"
+                  Initialized="VariableComboBox_OnInitialized"
+                  DropDownClosed="VariableComboBox_DropDownClosed" />
         <TextBox x:Name="txtCommand"
-                 Margin="10,30,10,0"
+                 Margin="0,30,0,0"
                  TextWrapping="Wrap"
                  VerticalAlignment="Top"
                  Height="77"
                  MaxLines="5" />
-        <Button x:Name="cmdSelectFile"
-                Content="{localization:LocalisedText CorePlugins.RunCommand.Browse}"
-                HorizontalAlignment="Right"
-                Margin="0,112,10,0"
-                VerticalAlignment="Top"
-                Click="cmdSelectFile_Click"
-                FontSize="12" />
         <CheckBox x:Name="showCmdCheckBox"
                   Content="{localization:LocalisedText CorePlugins.RunCommand.ShowCMD}"
                   HorizontalAlignment="Left"
                   Height="28"
-                  Margin="10,112,0,0"
-                  VerticalAlignment="Top"
-                  Width="136" />
+                  Margin="0,118,0,0"
+                  VerticalAlignment="Top" />
 
     </Grid>
 </UserControl>

@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Controls;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using ManagedWinapi.Windows;
@@ -63,10 +58,18 @@ namespace GestureSign.CorePlugins.SendMessage
             get { return true; }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return _gui ?? (_gui = CreateGUI()); }
         }
+
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
+        }
+
+        public object Icon => IconSource.Window;
+
         #endregion
 
         #region Public Methods

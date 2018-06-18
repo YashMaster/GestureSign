@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
-using GestureSign.Common.Localization;
+﻿using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 
 namespace GestureSign.CorePlugins
@@ -29,9 +23,14 @@ namespace GestureSign.CorePlugins
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.ToggleWindowTopmost.Description"); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return null; }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return true; }
         }
 
         public string Category
@@ -44,6 +43,8 @@ namespace GestureSign.CorePlugins
             get { return true; }
         }
 
+        public object Icon => IconSource.Window;
+
         #endregion
 
         #region Public Methods
@@ -55,9 +56,6 @@ namespace GestureSign.CorePlugins
 
         public bool Gestured(PointInfo actionPoint)
         {
-            if (actionPoint.WindowHandle.ToInt64() != ManagedWinapi.Windows.SystemWindow.ForegroundWindow.HWnd.ToInt64())
-                ManagedWinapi.Windows.SystemWindow.ForegroundWindow = actionPoint.Window;
-
             actionPoint.Window.TopMost = !actionPoint.Window.TopMost;
 
             return true;

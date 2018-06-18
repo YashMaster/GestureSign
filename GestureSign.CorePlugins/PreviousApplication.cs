@@ -1,112 +1,119 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.IO;
-using System.Diagnostics;
 using GestureSign.Common.Plugins;
-using ManagedWinapi.Windows;
-using System.Windows.Controls;
+using WindowsInput;
+using WindowsInput.Native;
 using GestureSign.Common.Localization;
+using System.Windows.Forms;
 
 namespace GestureSign.CorePlugins
 {
-	public class PreviousApplication : IPlugin
-	{
-		#region Private Variables
+    public class PreviousApplication : IPlugin
+    {
+        #region Private Variables
 
-		IHostControl _HostControl = null;
+        IHostControl _HostControl = null;
 
-		#endregion
+        #endregion
 
-		#region IAction Properties
+        #region IAction Properties
 
-		public string Name
-		{
+        public string Name
+        {
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.PreviousApplication.Name"); }
-		}
+        }
 
-		public string Description
-		{
+        public string Description
+        {
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.PreviousApplication.Description"); }
-		}
+        }
 
-		public UserControl GUI
-		{
-			get { return null; }
-		}
+        public object GUI
+        {
+            get { return null; }
+        }
 
-		public string Category
-		{
-			get { return "Windows"; }
-		}
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
+        }
 
-		public bool IsAction
-		{
-			get { return true; }
-		}
+        public string Category
+        {
+            get { return "Windows"; }
+        }
 
-		#endregion
+        public bool IsAction
+        {
+            get { return true; }
+        }
 
-		#region IAction Methods
+        public object Icon => IconSource.Window;
 
-		public void Initialize()
-		{
+        #endregion
 
-		}
+        #region IAction Methods
 
-		public bool Gestured(PointInfo ActionPoint)
-		{
-			try
-			{
-				SystemWindow.ForegroundWindow = SystemWindow.AllToplevelWindows.Where
-												(w => w.Visible &&	// Must be a visible windows
-												 w.Title != "" &&	// Must have a window title
-												(w.Style & WindowStyleFlags.POPUPWINDOW)
-													!= WindowStyleFlags.POPUPWINDOW &&
-												(w.ExtendedStyle & WindowExStyleFlags.TOOLWINDOW)
-													!= WindowExStyleFlags.TOOLWINDOW	// Must not be a tool window
-												).First(w => w != SystemWindow.ForegroundWindow);
-			}
-			catch (InvalidOperationException)
-			{
-				// Do nothing here, no other window open..
-			}
-			catch (Exception)
-			{
-				//MessageBox.Show("Oops! - " + ex.ToString());
-			}
-			finally{}
-			return true;
-		}
+        public void Initialize()
+        {
 
-		public bool Deserialize(string SerializedData)
+        }
+
+        public bool Gestured(PointInfo ActionPoint)
+        {
+            InputSimulator simulator = new InputSimulator();
+            try
+            {
+                simulator.Keyboard.KeyDown(VirtualKeyCode.LSHIFT)
+                    .Sleep(20)
+                    .KeyDown(VirtualKeyCode.LMENU)
+                    .Sleep(20)
+                    .KeyDown(VirtualKeyCode.TAB)
+                    .Sleep(20)
+                    .KeyUp(VirtualKeyCode.TAB)
+                    .Sleep(20)
+                    .KeyUp(VirtualKeyCode.LMENU)
+                    .Sleep(20)
+                    .KeyUp(VirtualKeyCode.LSHIFT)
+                    .Sleep(20);
+            }
+            catch (Exception)
+            {
+                if (!KeyboardHelper.ResendByKeybdEvent(new Keys[] { Keys.LMenu, Keys.LShiftKey }, new Keys[] { Keys.Tab }))
+                {
+                    KeyboardHelper.ResetKeyState(ActionPoint.Window, Keys.LMenu, Keys.LShiftKey);
+                }
+                return false;
+            }
+            return true;
+        }
+
+        public bool Deserialize(string SerializedData)
         {
             return true;
-			// Nothing to deserialize
-		}
+            // Nothing to deserialize
+        }
 
-		public string Serialize()
-		{
-			// Nothing to serialize, send empty string
-			return "";
-		}
+        public string Serialize()
+        {
+            // Nothing to serialize, send empty string
+            return "";
+        }
 
-		public void ShowGUI(bool IsNew)
-		{
-			// Nothing to do here
-		}
+        public void ShowGUI(bool IsNew)
+        {
+            // Nothing to do here
+        }
 
-		#endregion
+        #endregion
 
-		#region Host Control
+        #region Host Control
 
-		public IHostControl HostControl
-		{
-			get { return _HostControl; }
-			set { _HostControl = value; }
-		}
+        public IHostControl HostControl
+        {
+            get { return _HostControl; }
+            set { _HostControl = value; }
+        }
 
-		#endregion
-	}
+        #endregion
+    }
 }

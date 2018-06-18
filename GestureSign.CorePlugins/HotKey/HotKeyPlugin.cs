@@ -7,8 +7,8 @@ using WindowsInput.Native;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using ManagedWinapi;
-using ManagedWinapi.Windows;
-using UserControl = System.Windows.Controls.UserControl;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace GestureSign.CorePlugins.HotKey
 {
@@ -48,9 +48,14 @@ namespace GestureSign.CorePlugins.HotKey
             get { return GetDescription(_Settings); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return _GUI ?? (_GUI = CreateGUI()); }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return true; }
         }
 
         public HotKey TypedGUI
@@ -67,6 +72,8 @@ namespace GestureSign.CorePlugins.HotKey
         {
             get { return true; }
         }
+
+        public object Icon => IconSource.Keyboard;
 
         #endregion
 
@@ -146,16 +153,26 @@ namespace GestureSign.CorePlugins.HotKey
 
         public bool Gestured(PointInfo ActionPoint)
         {
-            if (ActionPoint.WindowHandle.ToInt64() != SystemWindow.ForegroundWindow.HWnd.ToInt64() &&
-                ActionPoint.Window != null)
-                SystemWindow.ForegroundWindow = ActionPoint.Window;
             try
             {
                 SendShortcutKeys(_Settings);
             }
-            catch (Exception exception)
+            catch (Exception)
             {
-                throw new UnauthorizedAccessException(LocalizationProvider.Instance.GetTextValue("CorePlugins.HotKey.UnauthorizedAccessException"), exception);
+                var keyList = new List<Keys>();
+                if (_Settings.Shift)
+                    keyList.Add(Keys.LShiftKey);
+                if (_Settings.Alt)
+                    keyList.Add(Keys.LMenu);
+                if (_Settings.Control)
+                    keyList.Add(Keys.LControlKey);
+                if (_Settings.Windows)
+                    keyList.Add(Keys.LWin);
+                if (!KeyboardHelper.ResendByKeybdEvent(keyList, _Settings.KeyCode))
+                {
+                    keyList.AddRange(_Settings.KeyCode);
+                    KeyboardHelper.ResetKeyState(ActionPoint.Window, keyList.ToArray());
+                }
             }
             return true;
         }
@@ -294,19 +311,19 @@ namespace GestureSign.CorePlugins.HotKey
                 // Deceide which keys to press
                 // Windows
                 if (settings.Windows)
-                    simulator.Keyboard.KeyDown(VirtualKeyCode.LWIN);
+                    simulator.Keyboard.KeyDown(VirtualKeyCode.LWIN).Sleep(30);
 
                 // Control
                 if (settings.Control)
-                    simulator.Keyboard.KeyDown(VirtualKeyCode.LCONTROL);
+                    simulator.Keyboard.KeyDown(VirtualKeyCode.LCONTROL).Sleep(30);
 
                 // Alt
                 if (settings.Alt)
-                    simulator.Keyboard.KeyDown(VirtualKeyCode.LMENU);
+                    simulator.Keyboard.KeyDown(VirtualKeyCode.LMENU).Sleep(30);
 
                 // Shift
                 if (settings.Shift)
-                    simulator.Keyboard.KeyDown(VirtualKeyCode.LSHIFT);
+                    simulator.Keyboard.KeyDown(VirtualKeyCode.LSHIFT).Sleep(30);
 
                 // Modifier
                 if (settings.KeyCode != null)
@@ -319,19 +336,19 @@ namespace GestureSign.CorePlugins.HotKey
                     }
                 // Release Shift
                 if (settings.Shift)
-                    simulator.Keyboard.KeyUp(VirtualKeyCode.LSHIFT);
+                    simulator.Keyboard.KeyUp(VirtualKeyCode.LSHIFT).Sleep(30);
 
                 // Release Alt
                 if (settings.Alt)
-                    simulator.Keyboard.KeyUp(VirtualKeyCode.LMENU);
+                    simulator.Keyboard.KeyUp(VirtualKeyCode.LMENU).Sleep(30);
 
                 // Release Control
                 if (settings.Control)
-                    simulator.Keyboard.KeyUp(VirtualKeyCode.LCONTROL);
+                    simulator.Keyboard.KeyUp(VirtualKeyCode.LCONTROL).Sleep(30);
 
                 // Release Windows
                 if (settings.Windows)
-                    simulator.Keyboard.KeyUp(VirtualKeyCode.LWIN);
+                    simulator.Keyboard.KeyUp(VirtualKeyCode.LWIN).Sleep(30);
             }
         }
 

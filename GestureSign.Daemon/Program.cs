@@ -4,22 +4,23 @@ using System.IO;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
-using GestureSign.Common;
 using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.InterProcessCommunication;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
 using GestureSign.Daemon.Input;
 using GestureSign.Daemon.Surface;
+using GestureSign.Daemon.Triggers;
 
 namespace GestureSign.Daemon
 {
     static class Program
     {
         private const string TouchInputProvider = "GestureSign_TouchInputProvider";
-        private static SurfaceForm _surfaceForm;
+
         /// <summary>
         /// 应用程序的主入口点。
         /// </summary>
@@ -36,43 +37,35 @@ namespace GestureSign.Daemon
                     try
                     {
                         Application.ThreadException += Application_ThreadException;
+                        Application.ApplicationExit += Application_ApplicationExit;
                         Logging.OpenLogFile();
 
-                        if ("Built-in".Equals(AppConfig.CultureName) ||
-                            !LocalizationProvider.Instance.LoadFromFile("Daemon", Properties.Resources.en))
+                        if (!LocalizationProvider.Instance.LoadFromFile("Daemon"))
                         {
                             LocalizationProvider.Instance.LoadFromResource(Properties.Resources.en);
                         }
 
-                        TouchCapture.Instance.Load();
-                        _surfaceForm = new SurfaceForm();
+                        PointCapture.Instance.Load();
+                        SurfaceForm.Instance.Load();
+                        SynchronizationContext uiContext = SynchronizationContext.Current;
+                        TriggerManager.Instance.Load();
 
-                        if (!StartTouchInputProvider()) return;
-
-                        GestureManager.Instance.Load(TouchCapture.Instance);
-                        ApplicationManager.Instance.Load(TouchCapture.Instance);
+                        GestureManager.Instance.Load(PointCapture.Instance);
+                        ApplicationManager.Instance.Load(PointCapture.Instance);
                         // Create host control class and pass to plugins
                         HostControl hostControl = new HostControl()
                         {
                             _ApplicationManager = ApplicationManager.Instance,
                             _GestureManager = GestureManager.Instance,
-                            _TouchCapture = TouchCapture.Instance,
+                            _PointCapture = PointCapture.Instance,
                             _PluginManager = PluginManager.Instance,
                             _TrayManager = TrayManager.Instance
                         };
-                        PluginManager.Instance.Load(hostControl);
+                        PluginManager.Instance.Load(hostControl, uiContext);
                         TrayManager.Instance.Load();
 
-                        SynchronizationContext uiContext = SynchronizationContext.Current;
                         NamedPipe.Instance.RunNamedPipeServer("GestureSignDaemon", new MessageProcessor(uiContext));
 
-                        //if (TouchCapture.Instance.MessageWindow.NumberOfTouchscreens == 0)
-                        //{
-                        //    MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFound"),
-                        //        LocalizationProvider.Instance.GetTextValue("Messages.TouchscreenNotFoundTitle"),
-                        //        MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                        //    //return;
-                        //}
                         Application.Run();
                     }
                     catch (Exception e)
@@ -83,11 +76,14 @@ namespace GestureSign.Daemon
                         Application.Exit();
                     }
                 }
-                else
-                {
-                    Application.Exit();
-                }
             }
+        }
+
+        private static void Application_ApplicationExit(object sender, EventArgs e)
+        {
+            NamedPipe.Instance.Dispose();
+            PointCapture.Instance.Dispose();
+            SurfaceForm.Instance.Dispose();
         }
 
         private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
@@ -116,40 +112,6 @@ namespace GestureSign.Daemon
             // Exits the program when the user clicks Abort.
             if (result == DialogResult.Abort)
                 Application.Exit();
-        }
-
-        private static bool StartTouchInputProvider()
-        {
-            bool createdNewProvider;
-            using (new Mutex(false, TouchInputProvider, out createdNewProvider))
-                if (createdNewProvider)
-                {
-                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GestureSign.TouchInputProvider.exe");
-                    if (!File.Exists(path))
-                    {
-                        MessageBox.Show(LocalizationProvider.Instance.GetTextValue("Messages.CannotFindTouchInputProviderMessage"),
-                            LocalizationProvider.Instance.GetTextValue("Messages.Error"));
-                        return false;
-                    }
-                    using (Process daemon = new Process())
-                    {
-                        daemon.StartInfo.FileName = path;
-
-                        //daemon.StartInfo.UseShellExecute = false;
-                        if (IsAdministrator())
-                            daemon.StartInfo.Verb = "runas";
-                        daemon.StartInfo.CreateNoWindow = false;
-                        daemon.Start();
-                    }
-                }
-            return true;
-        }
-
-        private static bool IsAdministrator()
-        {
-            WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
     }
 }

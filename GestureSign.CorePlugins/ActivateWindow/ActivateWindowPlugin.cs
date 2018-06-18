@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows.Controls;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using ManagedWinapi.Windows;
@@ -31,6 +29,7 @@ namespace GestureSign.CorePlugins.ActivateWindow
         private static extern bool IsWindowVisible(IntPtr hWnd);
         [DllImport(User32)]
         private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
         #endregion
 
         #region Public Properties
@@ -45,9 +44,14 @@ namespace GestureSign.CorePlugins.ActivateWindow
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateWindow.Description"); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return _gui ?? (_gui = CreateGUI()); }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
         }
 
         public ActivateWindowUI TypedGUI
@@ -65,6 +69,8 @@ namespace GestureSign.CorePlugins.ActivateWindow
             get { return true; }
         }
 
+        public object Icon => IconSource.Window;
+
         #endregion
 
         #region Public Methods
@@ -76,8 +82,7 @@ namespace GestureSign.CorePlugins.ActivateWindow
 
         public bool Gestured(PointInfo actionPoint)
         {
-            Stopwatch sw = Stopwatch.StartNew();
-
+            var tick = Environment.TickCount;
             do
             {
                 if (_settings.IsRegEx)
@@ -93,14 +98,17 @@ namespace GestureSign.CorePlugins.ActivateWindow
                     IntPtr hWnd = FindWindow(className, caption);
                     if (hWnd != IntPtr.Zero)
                     {
-                        SystemWindow.ForegroundWindow = new SystemWindow(hWnd);
-                        sw.Stop();
+                        var window = new SystemWindow(hWnd);
+                        if (window.WindowState == System.Windows.Forms.FormWindowState.Minimized)
+                        {
+                            window.RestoreWindow();
+                        }
+                        SystemWindow.ForegroundWindow = window;
                         return true;
                     }
                 }
                 Thread.Sleep(10);
-            } while (sw.ElapsedMilliseconds < _settings.Timeout);
-            sw.Stop();
+            } while (_settings.Timeout > 0 && Environment.TickCount - tick < _settings.Timeout);
             return false;
         }
 
@@ -119,6 +127,12 @@ namespace GestureSign.CorePlugins.ActivateWindow
                         RegexOptions.Singleline | RegexOptions.IgnoreCase))
                     {
                         _isFound = true;
+
+                        if (window.WindowState == System.Windows.Forms.FormWindowState.Minimized)
+                        {
+                            window.RestoreWindow();
+                        }
+
                         SystemWindow.ForegroundWindow = window;
                         return false;
                     }

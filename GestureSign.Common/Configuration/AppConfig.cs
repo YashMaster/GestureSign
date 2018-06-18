@@ -1,25 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using GestureSign.Common.Input;
+using GestureSign.Common.Log;
+using ManagedWinapi.Hooks;
+using Microsoft.Win32;
+using System;
 using System.Configuration;
 using System.Globalization;
-using System.Threading;
 using System.IO;
-using GestureSign.Common.InterProcessCommunication;
+using System.Threading;
 
 namespace GestureSign.Common.Configuration
 {
     public class AppConfig
     {
         static System.Configuration.Configuration _config;
-        static readonly System.Threading.Timer Timer;
+        static Timer Timer;
         public static event EventHandler ConfigChanged;
 
-        private static readonly string Path;
+        private static ExeConfigurationFileMap ExeMap;
 
-        private static readonly ExeConfigurationFileMap ExeMap;
+        public static string ApplicationDataPath { private set; get; }
+
+        public static string LocalApplicationDataPath { private set; get; }
+
+        public static string BackupPath { private set; get; }
+
+        public static string ConfigPath { private set; get; }
 
         public static System.Drawing.Color VisualFeedbackColor
         {
@@ -37,7 +42,7 @@ namespace GestureSign.Common.Configuration
         {
             get
             {
-                return (int)GetValue("VisualFeedbackWidth", 20);
+                return (int)GetValue("VisualFeedbackWidth", 9);
             }
             set
             {
@@ -92,17 +97,7 @@ namespace GestureSign.Common.Configuration
                 SetValue("ShowTrayIcon", value);
             }
         }
-        public static bool ShowBalloonTip
-        {
-            get
-            {
-                return (bool)GetValue("ShowBalloonTip", false);
-            }
-            set
-            {
-                SetValue("ShowBalloonTip", value);
-            }
-        }
+
         public static string CultureName
         {
             get
@@ -139,15 +134,75 @@ namespace GestureSign.Common.Configuration
             }
         }
 
-        public static int GestureTimeout
+        public static int InitialTimeout
         {
             get
             {
-                return (int)GetValue("Timeout", 800);
+                return (int)GetValue(nameof(InitialTimeout), 0);
             }
             set
             {
-                SetValue("Timeout", value);
+                SetValue(nameof(InitialTimeout), value);
+            }
+        }
+
+        public static MouseActions DrawingButton
+        {
+            get
+            {
+                return (MouseActions)GetValue(nameof(DrawingButton), 0);
+            }
+            set
+            {
+                SetValue(nameof(DrawingButton), (int)value);
+            }
+        }
+
+        public static bool RegisterTouchPad
+        {
+            get
+            {
+                return (bool)GetValue(nameof(RegisterTouchPad), false);
+            }
+            set
+            {
+                SetValue(nameof(RegisterTouchPad), value);
+            }
+        }
+
+        public static bool IgnoreFullScreen
+        {
+            get
+            {
+                return GetValue(nameof(IgnoreFullScreen), true);
+            }
+            set
+            {
+                SetValue(nameof(IgnoreFullScreen), value);
+            }
+        }
+
+        public static bool IgnoreTouchInputWhenUsingPen
+        {
+            get
+            {
+                return GetValue(nameof(IgnoreTouchInputWhenUsingPen), true);
+            }
+            set
+            {
+                SetValue(nameof(IgnoreTouchInputWhenUsingPen), value);
+            }
+        }
+
+        public static DeviceStates PenGestureButton
+        {
+            get
+            {
+                return (DeviceStates)GetValue(nameof(PenGestureButton), 0);
+            }
+            set
+            {
+                SetValue(nameof(PenGestureButton), (int)value);
             }
         }
 
@@ -156,29 +211,31 @@ namespace GestureSign.Common.Configuration
 #if uiAccess
             UiAccess = true;
 #endif
-            Path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"GestureSign\GestureSign.config");
-            var configFolder = System.IO.Path.GetDirectoryName(Path);
+            ConfigPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"GestureSign\GestureSign.config");
+            ApplicationDataPath = System.IO.Path.GetDirectoryName(ConfigPath);
+            LocalApplicationDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GestureSign");
+            BackupPath = LocalApplicationDataPath + "\\Backup";
+            if (!Directory.Exists(ApplicationDataPath))
+                Directory.CreateDirectory(ApplicationDataPath);
 
-            if (!Directory.Exists(configFolder))
-                Directory.CreateDirectory(configFolder);
+            FileManager.WaitFile(ConfigPath);
 
             ExeMap = new ExeConfigurationFileMap
             {
-                ExeConfigFilename = Path,
-                RoamingUserConfigFilename = Path,
+                ExeConfigFilename = ConfigPath,
+                RoamingUserConfigFilename = ConfigPath,
                 LocalUserConfigFilename = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"GestureSign\GestureSign.config")
             };
 
             _config = ConfigurationManager.OpenMappedExeConfiguration(ExeMap, ConfigurationUserLevel.None);
             Timer = new Timer(SaveFile, null, Timeout.Infinite, Timeout.Infinite);
-
         }
 
         public static void Reload()
         {
             try
             {
-                FileManager.WaitFile(Path);
+                FileManager.WaitFile(ConfigPath);
 
                 _config = ConfigurationManager.OpenMappedExeConfiguration(ExeMap, ConfigurationUserLevel.None);
                 // ConfigurationManager.RefreshSection("appSettings");
@@ -189,16 +246,16 @@ namespace GestureSign.Common.Configuration
         }
 
 
-        public static void Save()
+        private static void Save()
         {
-            Timer.Change(400, Timeout.Infinite);
+            Timer.Change(100, Timeout.Infinite);
         }
 
         private static void SaveFile(object state)
         {
             try
             {
-                FileManager.WaitFile(Path);
+                FileManager.WaitFile(ConfigPath);
                 // Save the configuration file.    
                 _config.AppSettings.SectionInformation.ForceSave = true;
                 _config.Save(ConfigurationSaveMode.Modified);
@@ -213,53 +270,90 @@ namespace GestureSign.Common.Configuration
             }
             // Force a reload of the changed section.    
             ConfigurationManager.RefreshSection("appSettings");
-
-            NamedPipe.SendMessageAsync("LoadConfiguration", "GestureSignDaemon");
+            ConfigChanged?.Invoke(new object(), EventArgs.Empty);
         }
 
-        private static object GetValue(string key, object defaultValue)
+        private static T GetValue<T>(string key, T defaultValue, Func<string, T> converter)
         {
             var setting = _config.AppSettings.Settings[key];
             if (setting != null)
             {
                 try
                 {
-                    string strReturn = setting.Value;
-                    if (defaultValue.GetType() == typeof(System.Drawing.Color)) return System.Drawing.ColorTranslator.FromHtml(strReturn);
-                    else if (defaultValue is int) return int.Parse(strReturn);
-                    else if (defaultValue is double) return double.Parse(strReturn);
-                    else if (defaultValue is bool) return bool.Parse(strReturn);
-                    //return string
-                    else return strReturn;
+                    return converter(setting.Value);
                 }
                 catch
                 {
-                    SetValue(key, defaultValue);
+                    _config.AppSettings.Settings.Remove(key);
                     return defaultValue;
                 }
             }
-            else return defaultValue;
+            return defaultValue;
+        }
+
+        private static int GetValue(string key, int defaultValue)
+        {
+            return GetValue(key, defaultValue, s => int.Parse(s));
+        }
+
+        private static double GetValue(string key, double defaultValue)
+        {
+            return GetValue(key, defaultValue, s => double.Parse(s));
+        }
+
+        private static bool GetValue(string key, bool defaultValue)
+        {
+            return GetValue(key, defaultValue, s => bool.Parse(s));
+        }
+
+        private static string GetValue(string key, string defaultValue)
+        {
+            return GetValue(key, defaultValue, s => s);
         }
 
         private static DateTime GetValue(string key, DateTime defaultValue)
         {
-            var setting = _config.AppSettings.Settings[key];
-            if (setting != null)
+            string setting = GetValue(key, string.Empty);
+            if (!string.IsNullOrEmpty(setting))
             {
                 try
                 {
-                    return DateTime.Parse(setting.Value);
+                    return DateTime.Parse(setting);
                 }
                 catch
                 {
-                    SetValue(key, defaultValue);
+                    _config.AppSettings.Settings.Remove(key);
                     return defaultValue;
                 }
             }
             else return defaultValue;
         }
 
-        private static void SetValue(string key, object value)
+        private static System.Drawing.Color GetValue(string key, System.Drawing.Color defaultValue)
+        {
+            string setting = GetValue(key, string.Empty);
+            if (!string.IsNullOrEmpty(setting))
+            {
+                try
+                {
+                    return System.Drawing.ColorTranslator.FromHtml(setting);
+                }
+                catch
+                {
+                    _config.AppSettings.Settings.Remove(key);
+                    return defaultValue;
+                }
+            }
+            else
+            {
+                System.Drawing.Color color;
+                if (GetWindowGlassColor(out color))
+                    return color;
+                return defaultValue;
+            }
+        }
+
+        private static void SetValue<T>(string key, T value)
         {
             if (_config.AppSettings.Settings[key] != null)
             {
@@ -269,29 +363,44 @@ namespace GestureSign.Common.Configuration
             {
                 _config.AppSettings.Settings.Add(key, value.ToString());
             }
+            Save();
         }
+
         private static void SetValue(string key, System.Drawing.Color value)
         {
-            if (_config.AppSettings.Settings[key] != null)
-            {
-                _config.AppSettings.Settings[key].Value = System.Drawing.ColorTranslator.ToHtml(value);
-            }
-            else
-            {
-                _config.AppSettings.Settings.Add(key, System.Drawing.ColorTranslator.ToHtml(value));
-            }
+            SetValue(key, System.Drawing.ColorTranslator.ToHtml(value));
         }
 
         private static void SetValue(string key, DateTime value)
         {
-            if (_config.AppSettings.Settings[key] != null)
+            SetValue(key, value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static bool GetWindowGlassColor(out System.Drawing.Color windowGlassColor)
+        {
+            windowGlassColor = System.Drawing.Color.Empty;
+            try
             {
-                _config.AppSettings.Settings[key].Value = value.ToString(CultureInfo.InvariantCulture);
+                if (Environment.OSVersion.Version.Major >= 6)
+                {
+                    using (RegistryKey dwm = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\DWM"))
+                    {
+                        if (dwm == null)
+                            return false;
+                        var colorizationColor = dwm.GetValue("ColorizationColor");
+                        if (colorizationColor == null)
+                            return false;
+
+                        windowGlassColor = System.Drawing.Color.FromArgb((int)colorizationColor | -16777216);
+                        return true;
+                    }
+                }
             }
-            else
+            catch
             {
-                _config.AppSettings.Settings.Add(key, value.ToString(CultureInfo.InvariantCulture));
+                return false;
             }
+            return false;
         }
     }
 }

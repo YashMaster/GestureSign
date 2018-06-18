@@ -11,10 +11,11 @@ using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using GestureSign.Common.Log;
 
 namespace GestureSign.Common.InterProcessCommunication
 {
-    public class NamedPipe
+    public class NamedPipe : IDisposable
     {
         [return: MarshalAs(UnmanagedType.Bool)]
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
@@ -23,6 +24,8 @@ namespace GestureSign.Common.InterProcessCommunication
         private static NamedPipeServerStream _pipeServer;
         private static NamedPipeServerStream _persistentPipeServerStream;
         private static readonly NamedPipe instance = new NamedPipe();
+
+        private bool disposed = false; // To detect redundant calls
 
         public static NamedPipe Instance
         {
@@ -34,53 +37,39 @@ namespace GestureSign.Common.InterProcessCommunication
 
         public void RunNamedPipeServer(string pipeName, IMessageProcessor messageProcessor)
         {
-            _pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Message,
+            _pipeServer = new NamedPipeServerStream(GetUserPipeName(pipeName), PipeDirection.In, 1, PipeTransmissionMode.Message,
                 PipeOptions.Asynchronous);
 
             AsyncCallback ac = null;
             ac = o =>
             {
+                if (disposed) return;
                 NamedPipeServerStream server = (NamedPipeServerStream)o.AsyncState;
-                server.EndWaitForConnection(o);
+                try
+                {
+                    server.EndWaitForConnection(o);
 
-                messageProcessor.ProcessMessages(server);
-                server.Disconnect();
+                    messageProcessor.ProcessMessages(server);
+                    server.Disconnect();
 
-                server.BeginWaitForConnection(ac, server);
-
+                    server.BeginWaitForConnection(ac, server);
+                }
+                catch (Exception e)
+                {
+                    Logging.LogException(e);
+                }
             };
             _pipeServer.BeginWaitForConnection(ac, _pipeServer);
         }
 
-        public void RunPersistentPipeConnection(string pipeName, IMessageProcessor messageProcessor)
-        {
-            _persistentPipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-
-            AsyncCallback ac = null;
-            ac = o =>
-            {
-                NamedPipeServerStream server = (NamedPipeServerStream)o.AsyncState;
-                server.EndWaitForConnection(o);
-
-                while (true)
-                {
-                    if (!messageProcessor.ProcessMessages(server)) break;
-                }
-
-                server.Dispose();
-                server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-                server.BeginWaitForConnection(ac, server);
-            };
-            _persistentPipeServerStream.BeginWaitForConnection(ac, _persistentPipeServerStream);
-        }
-
         public static Task<bool> SendMessageAsync(object message, string pipeName, bool wait = true)
         {
+            string userPipeName = GetUserPipeName(pipeName);
             return Task.Run<bool>(new Func<bool>(() =>
                {
                    try
                    {
-                       using (NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.None, TokenImpersonationLevel.None))
+                       using (NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", userPipeName, PipeDirection.Out, PipeOptions.None, TokenImpersonationLevel.None))
                        {
                            using (MemoryStream ms = new MemoryStream())
                            {
@@ -89,12 +78,12 @@ namespace GestureSign.Common.InterProcessCommunication
                                    int i = 0;
                                    for (; i != 20; i++)
                                    {
-                                       if (!NamedPipeDoesNotExist(pipeName)) break;
+                                       if (!NamedPipeDoesNotExist(userPipeName)) break;
                                        Thread.Sleep(50);
                                    }
                                    if (i == 20) return false;
                                }
-                               if (NamedPipeDoesNotExist(pipeName)) return false;
+                               if (NamedPipeDoesNotExist(userPipeName)) return false;
 
                                pipeClient.Connect(10);
 
@@ -109,6 +98,14 @@ namespace GestureSign.Common.InterProcessCommunication
                            }
                        }
                        return true;
+                   }
+                   catch (IOException)
+                   {
+                       return false;
+                   }
+                   catch (TimeoutException)
+                   {
+                       return false;
                    }
                    catch (Exception e)
                    {
@@ -142,6 +139,34 @@ namespace GestureSign.Common.InterProcessCommunication
                 //return true; // assume it exists
             }
         }
+
+        public static string GetUserPipeName(string pipeName)
+        {
+            return pipeName + "\\" + Environment.UserName;
+        }
+
+        #region IDisposable Support
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                if (disposing)
+                {
+                    _persistentPipeServerStream?.Dispose();
+                    _pipeServer?.Dispose();
+                }
+
+                disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        #endregion
 
     }
 }

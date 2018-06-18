@@ -59,7 +59,7 @@ namespace GestureSign.ControlPanel.Common
         public static DrawingImage CreateImage(PointPattern[] pointPatterns, Size size, Color color)
         {
             if (pointPatterns == null)
-                throw new Exception("You must provide a gesture before trying to generate a thumbnail");
+                return null;
 
             DrawingGroup drawingGroup = new DrawingGroup();
             for (int i = 0; i < pointPatterns.Length; i++)
@@ -68,7 +68,7 @@ namespace GestureSign.ControlPanel.Common
 
                 color.A = (byte)(0xFF - i * 0x55);
                 SolidColorBrush brush = new SolidColorBrush(color);
-                Pen drawingPen = new Pen(brush, 3 + i * 2) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                Pen drawingPen = new Pen(brush, size.Height / 20 + i * 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
 
                 if (pointPatterns[i].Points == null) return null;
                 for (int j = 0; j < pointPatterns[i].Points.Count; j++)

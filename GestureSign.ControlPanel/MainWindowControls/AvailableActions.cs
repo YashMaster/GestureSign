@@ -2,20 +2,18 @@
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Localization;
-using GestureSign.Common.Plugins;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.Dialogs;
+using GestureSign.ControlPanel.ViewModel;
+using IWshRuntimeLibrary;
+using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -31,130 +29,78 @@ namespace GestureSign.ControlPanel.MainWindowControls
         public AvailableActions()
         {
             InitializeComponent();
-
-            var actionsSourceView = new ListCollectionView(ActionInfos);//创建数据源的视图
-            actionsSourceView.GroupDescriptions.Add(new PropertyGroupDescription("GestureName"));//在图中添加分组
-            actionsSourceView.SortDescriptions.Add(new SortDescription("GestureName", ListSortDirection.Ascending));
-            lstAvailableActions.ItemsSource = actionsSourceView;//绑定数据源
-
-            var applicationSourceView = new ListCollectionView(_applications);
-            var applicationGroupDesctrption = new PropertyGroupDescription("Group");//设置分组列
-            applicationSourceView.GroupDescriptions.Add(applicationGroupDesctrption);//在图中添加分组
-            lstAvailableApplication.ItemsSource = applicationSourceView;
-
-            ActionDialog.ActionsChanged += (o, e) =>
-            {
-                if (lstAvailableApplication.SelectedItem == e.Application)
-                {
-                    var oldActionInfo =
-                          ActionInfos.FirstOrDefault(ai => ai.ActionName.Equals(e.Action.Name, StringComparison.Ordinal));
-                    if (oldActionInfo != null)
-                    {
-                        int index = ActionInfos.IndexOf(oldActionInfo);
-                        var newActionInfo = Action2ActionInfo(e.Action);
-                        ActionInfos[index] = newActionInfo;
-                        RefreshGroup(e.Action.GestureName);
-                        SelectAction(newActionInfo);
-                    }
-                    else RefreshActions(false);
-                }
-                else
-                {
-                    BindApplications();
-                    _selecteNewestItem = true;
-                    lstAvailableApplication.SelectedItem = e.Application;
-                    lstAvailableApplication.ScrollIntoView(e.Application);
-                }
-            };
-            AvailableGestures.GestureChanged += (o, e) => { RefreshActions(true); };
-            GestureDefinition.GesturesChanged += (o, e) => { RefreshActions(true); };
-            ApplicationDialog.UserApplicationChanged += (o, e) =>
-            {
-                BindApplications();
-                lstAvailableApplication.SelectedItem = e.Application;
-                lstAvailableApplication.ScrollIntoView(e.Application);
-            };
-
-            ApplicationManager.OnLoadApplicationsCompleted += (o, e) => { this.Dispatcher.InvokeAsync(BindApplications); };
-
-            if (ApplicationManager.FinishedLoading) BindApplications();
+            DataContext = this;
         }
 
-
-        ObservableCollection<ActionInfo> ActionInfos = new ObservableCollection<ActionInfo>();
-        private ObservableCollection<IApplication> _applications = new ObservableCollection<IApplication>();
-        private Task _addActionTask;
-        private bool _selecteNewestItem;
         private IApplication _cutActionSource;
-        private IAction _actionClipboard;
+        private readonly List<CommandInfo> _commandClipboard = new List<CommandInfo>();
 
-        private void cmdEditAction_Click(object sender, RoutedEventArgs e)
+        private void UserControl_Initialized(object sender, EventArgs eArgs)
+        {
+            ApplicationManager.Instance.CollectionChanged += (o, e) =>
+            {
+                if (e.NewItems != null && e.NewItems.Count > 0 && !(e.NewItems[0] is IgnoredApp))
+                    lstAvailableApplication.SelectedItem = (IApplication)e.NewItems[0];
+            };
+        }
+
+        private void cmdEditCommand_Click(object sender, RoutedEventArgs e)
+        {
+            EditCommand();
+        }
+
+        private void EditCommand()
         {
             // Make sure at least one item is selected
             if (lstAvailableActions.SelectedItems.Count == 0) return;
 
             // Get first item selected, associated action, and selected application
-            ActionInfo selectedItem = (ActionInfo)lstAvailableActions.SelectedItem;
-            IAction selectedAction = null;
-            IApplication selectedApplication = null;
-            string selectedGesture = null;
+            CommandInfo selectedItem = (CommandInfo)lstAvailableActions.SelectedItem;
+            var selectedAction = selectedItem.Action;
+            var selectedCommand = selectedItem.Command;
+            if (selectedCommand == null) return;
 
-            selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
-
-            if (selectedApplication == null)
-                // Select action from global application list
-                selectedAction = ApplicationManager.Instance.GetGlobalApplication().Actions.FirstOrDefault(a => a.Name == selectedItem.ActionName);
-            else
-                // Select action from selected application list
-                selectedAction = selectedApplication.Actions.FirstOrDefault(a => a.Name == selectedItem.ActionName);
-            if (selectedAction == null) return;
-            // Get currently assigned gesture
-            selectedGesture = selectedAction.GestureName;
-
-            // Set current application, current action, and current gestures
-            ApplicationManager.Instance.CurrentApplication = selectedApplication;
-            GestureManager.Instance.GestureName = selectedGesture;
-
-            ActionDialog actionDialog = new ActionDialog(selectedAction, selectedApplication);
-            actionDialog.ShowDialog();
+            CommandDialog commandDialog = new CommandDialog(selectedCommand, selectedAction);
+            var result = commandDialog.ShowDialog();
+            if (result != null && result.Value)
+            {
+                int index = selectedAction.Commands.ToList().IndexOf(selectedCommand);
+                selectedAction.RemoveCommand(selectedCommand);
+                selectedAction.InsertCommand(index, selectedCommand);
+            }
         }
 
-        private async void cmdDeleteAction_Click(object sender, RoutedEventArgs e)
+        private void cmdDeleteCommand_Click(object sender, RoutedEventArgs e)
         {
             // Verify that we have an item selected
             if (lstAvailableActions.SelectedItems.Count == 0) return;
 
             // Confirm user really wants to delete selected items
-            if (await
-                UIHelper.GetParentWindow(this)
-                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteConfirmTitle"),
-                        LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteActionConfirm"),
+            if (UIHelper.GetParentWindow(this)
+                    .ShowModalMessageExternal(LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteConfirmTitle"),
+                      string.Format(LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteCommandConfirm"), lstAvailableActions.SelectedItems.Count),
                         MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
                         {
                             AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
                             NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
                             ColorScheme = MetroDialogColorScheme.Accented,
-                            AnimateHide = false,
-                            AnimateShow = false
                         }) != MessageDialogResult.Affirmative)
                 return;
 
-
+            var commandInfoList = lstAvailableActions.SelectedItems.Cast<CommandInfo>().ToList();
             // Loop through selected actions
-            for (int i = lstAvailableActions.SelectedItems.Count - 1; i >= 0; i--)
+            for (int i = commandInfoList.Count - 1; i >= 0; i--)
             {
                 // Grab selected item
-                ActionInfo selectedAction = lstAvailableActions.SelectedItems[i] as ActionInfo;
+                CommandInfo selectedCommand = commandInfoList[i];
+                selectedCommand.Action.RemoveCommand(selectedCommand.Command);
+                if (selectedCommand.Action.IsEmpty())
+                {
+                    IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
 
-                // Get the name of the action
-                string strActionName = selectedAction.ActionName;
-
-                IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
-
-                selectedApp.RemoveAction(selectedApp.Actions.FirstOrDefault(a => a.Name.Equals(strActionName, StringComparison.Ordinal)));
-
+                    selectedApp.RemoveAction(selectedCommand.Action);
+                }
             }
-            RefreshActions(false);
             // Save entire list of applications
             ApplicationManager.Instance.SaveApplications();
         }
@@ -163,441 +109,197 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             EnableRelevantButtons();
         }
-        //如果有全选需求，再分别选择：界面+保存的数据
-        private void ActionCheckBox_Click(object sender, RoutedEventArgs e)
+
+        private void LstAvailableActions_OnScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            ActionInfo actionInfo = UIHelper.GetParentDependencyObject<ListBoxItem>(sender as CheckBox).Content as ActionInfo;
-            if (actionInfo == null) return;
-            IApplication app = lstAvailableApplication.SelectedItem as IApplication;
-            if (app == null) return;
-            ApplicationManager.Instance.GetAnyDefinedAction(actionInfo.ActionName, app.Name).IsEnabled = (sender as CheckBox).IsChecked.Value;
+            HitTestResult hitTest = VisualTreeHelper.HitTest(lstAvailableActions, new Point(5, 5));
+            var element = hitTest.VisualHit as UIElement;
+            if (element != null)
+            {
+                Rect bounds = element.TransformToAncestor(lstAvailableActions).TransformBounds(new Rect(0.0, 0.0, element.RenderSize.Width, element.RenderSize.Height));
+                var gestureImageContainer = element.FindChild<Grid>("GestureImageGrid");
+                if (gestureImageContainer == null) return;
+                if (bounds.Top < 0)
+                {
+                    var topMargin = -bounds.Top + gestureImageContainer.ActualHeight > element.RenderSize.Height
+                        ? element.RenderSize.Height - gestureImageContainer.ActualHeight
+                        : Math.Abs(bounds.Top);
+                    gestureImageContainer.Margin = new Thickness(0, topMargin, 0, 0);
+                }
+                else gestureImageContainer.Margin = new Thickness(0);
+            }
+        }
+
+        private void CommandCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            CommandInfo info = UIHelper.GetParentDependencyObject<ListBoxItem>(sender as ToggleSwitch).Content as CommandInfo;
+            if (info == null) return;
+            info.Command.IsEnabled = (sender as ToggleSwitch).IsChecked.Value;
             ApplicationManager.Instance.SaveApplications();
         }
 
-
-
-
-
         private void btnAddAction_Click(object sender, RoutedEventArgs e)
         {
-            if (GestureManager.Instance.Gestures.Length == 0)
-            {
-                UIHelper.GetParentWindow(this)
-                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Action.Messages.NoGestureTitle"),
-                        LocalizationProvider.Instance.GetTextValue("Action.Messages.NoGesture"), MessageDialogStyle.Affirmative,
-                        new MetroDialogSettings()
-                        {
-                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
-                            ColorScheme = MetroDialogColorScheme.Accented,
-                            AnimateHide = false,
-                            AnimateShow = false
-                        });
-                return;
-            }
-
-            var ai = lstAvailableActions.SelectedItem as ActionInfo;
-            string gestureName = ai?.GestureName;
-            ActionDialog actionDialog = new ActionDialog(gestureName, lstAvailableApplication.SelectedItem as IApplication);
-            actionDialog.Show();
-        }
-
-
-
-        private void BindApplications()
-        {
-            _applications.Clear();
-
-            // Add global actions to global applications group
-            var userApplications =
-                ApplicationManager.Instance.Applications.Where(app => (app is UserApplication)).OrderBy(app => app.Name);
-            var globalApplication = ApplicationManager.Instance.GetAllGlobalApplication();
-
-            foreach (var app in globalApplication.Union(userApplications))
-            {
-                _applications.Add(app);
-            }
-        }
-
-        private void RefreshActions(bool refreshAll)
-        {
             var selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
-            if (selectedApplication == null) return;
-            if (refreshAll)
+            if (selectedApplication == null)
             {
-                Action<object> refreshAction = (o) =>
-                 {
-                     Dispatcher.Invoke(() => { ActionInfos.Clear(); }, DispatcherPriority.Loaded);
-                     AddActionsToGroup(selectedApplication.Actions);
-                 };
-
-                if (_addActionTask == null)
-                {
-                    _addActionTask = Task.Factory.StartNew(refreshAction, null);
-                }
-                else _addActionTask = _addActionTask.ContinueWith(refreshAction);
+                lstAvailableApplication.SelectedIndex = 0;
+                selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
+                if (selectedApplication == null) return;
             }
-            else
+            var ci = lstAvailableActions.SelectedItem as CommandInfo;
+            if (ci == null)
             {
-                _selecteNewestItem = true;
-                var newApp = selectedApplication.Actions.Where(a => !ActionInfos.Any(ai => ai.Equals(a))).ToList();
-                var deletedApp = ActionInfos.Where(ai => !selectedApplication.Actions.Any(ai.Equals)).ToList();
-
-                if (newApp.Count == 1 && deletedApp.Count == 1)
+                var newCommand = new Command
                 {
-                    var newActionInfo = Action2ActionInfo(newApp[0]);
-                    ActionInfos[ActionInfos.IndexOf(deletedApp[0])] = newActionInfo;
-                    RefreshGroup(newApp[0].GestureName);
-                    SelectAction(newActionInfo);
-                }
-                else
-                {
-                    foreach (ActionInfo ai in deletedApp)
-                        ActionInfos.Remove(ai);
-                    AddActionsToGroup(newApp);
-                }
-            }
-        }
-
-        private void AddActionsToGroup(List<IAction> actions)
-        {
-            ActionInfo actionInfo = null;
-            foreach (var currentAction in actions)
-            {
-                actionInfo = Action2ActionInfo(currentAction);
-
-                var info = actionInfo;
+                    Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+                };
                 Dispatcher.Invoke(() =>
                 {
-                    ActionInfos.Add(info);
+                    lstAvailableActions.SelectedItem = null;
+                    var newAction = new GestureSign.Common.Applications.Action();
+                    newAction.AddCommand(newCommand);
+                    selectedApplication.AddAction(newAction);
+                    ApplicationManager.Instance.SaveApplications();
                 }, DispatcherPriority.Input);
             }
-
-            if (actionInfo != null && _selecteNewestItem)
-                Dispatcher.Invoke(() =>
-                  {
-                      _selecteNewestItem = false;
-                      SelectAction(actionInfo);
-                  });
-        }
-
-        void RefreshGroup(string gestureName)
-        {
-            lstAvailableActions.SelectedItem = null;
-            var temp = ActionInfos.Where(ai => ai.GestureName.Equals(gestureName, StringComparison.Ordinal)).ToList();
-            foreach (ActionInfo ai in temp)
-            {
-                int i = ActionInfos.IndexOf(ai);
-                ActionInfos.Remove(ai);
-                ActionInfos.Insert(i, ai);
-            }
-        }
-
-        void SelectAction(ActionInfo actionInfo)
-        {
-            lstAvailableActions.SelectedItem = actionInfo;
-            lstAvailableActions.UpdateLayout();
-            lstAvailableActions.ScrollIntoView(actionInfo);
-            EnableRelevantButtons();
-        }
-
-        private ActionInfo Action2ActionInfo(IAction action)
-        {
-            string description;
-            string pluginName;
-            // Ensure this action has a plugin
-            if (PluginManager.Instance.PluginExists(action.PluginClass, action.PluginFilename))
-            {
-                try
-                {
-                    // Get plugin for this action
-                    IPluginInfo pluginInfo =
-                        PluginManager.Instance.FindPluginByClassAndFilename(action.PluginClass,
-                            action.PluginFilename);
-
-                    // Feed settings to plugin
-                    if (!pluginInfo.Plugin.Deserialize(action.ActionSettings))
-                        action.ActionSettings = pluginInfo.Plugin.Serialize();
-
-                    pluginName = pluginInfo.Plugin.Name;
-                    description = pluginInfo.Plugin.Description;
-                }
-                catch
-                {
-                    pluginName = string.Empty;
-                    description = LocalizationProvider.Instance.GetTextValue("Action.Messages.NoAssociationAction");
-                }
-            }
             else
             {
-                pluginName = String.Empty;
-                description = LocalizationProvider.Instance.GetTextValue("Action.Messages.NoAssociationAction");
+                var element = (FrameworkElement)sender;
+                element.ContextMenu.PlacementTarget = element;
+                element.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                element.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void NewCommandMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApplication == null)
+            {
+                lstAvailableApplication.SelectedIndex = 0;
+                selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
+                if (selectedApplication == null) return;
             }
 
-            return new ActionInfo(
-                !String.IsNullOrEmpty(action.Name) ? action.Name : pluginName,
-                description,
-                action.GestureName,
-                action.IsEnabled);
+            var newCommand = new Command
+            {
+                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+            };
+            Dispatcher.Invoke(() =>
+            {
+                lstAvailableActions.SelectedItem = null;
+                var newAction = new GestureSign.Common.Applications.Action();
+                newAction.AddCommand(newCommand);
+                selectedApplication.AddAction(newAction);
+                ApplicationManager.Instance.SaveApplications();
+            }, DispatcherPriority.Input);
+        }
+
+        private void FromSelectedMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var ci = lstAvailableActions.SelectedItem as CommandInfo;
+            if (ci == null) return;
+
+            var newCommand = new Command
+            {
+                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+            };
+            lstAvailableActions.SelectedItem = null;
+            int commandIndex = ci.Action.Commands.ToList().IndexOf(ci.Command);
+            ci.Action.InsertCommand(commandIndex + 1, newCommand);
+            ApplicationManager.Instance.SaveApplications();
         }
 
         private void EnableRelevantButtons()
         {
-            cmdDelete.IsEnabled = cmdEdit.IsEnabled = lstAvailableActions.SelectedItems.Count == 1;
+            cmdDelete.IsEnabled = cmdEdit.IsEnabled = lstAvailableActions.SelectedItems.Count != 0;
 
-            var selectedActionInfo = (lstAvailableActions.SelectedItem as ActionInfo);
-            if (selectedActionInfo == null)
+            var selectedInfo = (lstAvailableActions.SelectedItem as CommandInfo);
+            if (selectedInfo == null)
                 MoveUpButton.IsEnabled = MoveDownButton.IsEnabled = false;
             else
             {
-                var actionInfoGroup = ActionInfos.Where(ai => ai.GestureName.Equals(selectedActionInfo.GestureName, StringComparison.Ordinal)).ToList();
-                int index = actionInfoGroup.IndexOf(selectedActionInfo);
+                int index = selectedInfo.Action.Commands.ToList().IndexOf(selectedInfo.Command);
 
-                MoveUpButton.IsEnabled = index != 0;
-                MoveDownButton.IsEnabled = index != actionInfoGroup.Count - 1;
+                MoveUpButton.IsEnabled = index > 0;
+                MoveDownButton.IsEnabled = index < selectedInfo.Action.Commands.Count() - 1;
             }
         }
 
         private bool SetClipboardAction()
         {
-            ActionInfo selectedItem = (ActionInfo)lstAvailableActions.SelectedItem;
-            if (selectedItem == null) return false;
-
-            IApplication currentApp = lstAvailableApplication.SelectedItem as IApplication;
-
-            IAction selectedAction = currentApp?.Actions.Find(a => a.Name.Equals(selectedItem.ActionName, StringComparison.Ordinal));
-
-            if (selectedAction != null)
+            _commandClipboard.Clear();
+            foreach (CommandInfo commandInfo in lstAvailableActions.SelectedItems)
             {
-                _actionClipboard = selectedAction;
-                return true;
+                if (commandInfo?.Command != null)
+                    _commandClipboard.Add(commandInfo);
             }
-            return false;
+            return _commandClipboard.Count != 0;
         }
 
-        private void availableGesturesComboBox_Loaded(object sender, RoutedEventArgs e)
-        {
-            ComboBox comboBox = sender as ComboBox;
-
-            if (comboBox != null)
-            {
-                var stackPanel = VisualTreeHelper.GetParent(comboBox);
-                string groupName = (VisualTreeHelper.GetChild(stackPanel, 1) as TextBlock)?.Text;
-                if (groupName == null) return;
-
-                foreach (GestureItem item in comboBox.Items)
-                {
-                    if (item.Name == groupName)
-                    {
-                        comboBox.SelectedIndex = comboBox.Items.IndexOf(item);
-                        return;
-                    }
-                }
-            }
-        }
-
-
-        private void availableGesturesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ActionButton_Click(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
-            ComboBox availableGesturesComboBox = sender as ComboBox;
-            if (availableGesturesComboBox != null &&
-                (!availableGesturesComboBox.IsDropDownOpen || e.AddedItems.Count == 0))
-                return;
 
-            Expander expander = UIHelper.GetParentDependencyObject<Expander>(availableGesturesComboBox);
-            if (expander == null) return;
+            List<CommandInfo> infoList = new List<CommandInfo>();
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>((Button)sender);
+            var collectionViewGroup = groupItem.Content as CollectionViewGroup;
+            if (collectionViewGroup == null) return;
 
-            var firstListBoxItem = UIHelper.FindVisualChild<ListBoxItem>(expander);
-            if (firstListBoxItem == null) return;
-            var listBoxItemParent = UIHelper.GetParentDependencyObject<StackPanel>(firstListBoxItem);
-            if (listBoxItemParent == null) return;
-            var listBoxItems = listBoxItemParent.Children;
-            string newGestureName = ((GestureItem)e.AddedItems[0]).Name;
-            ActionInfo ai = null;
-            foreach (ListBoxItem listBoxItem in listBoxItems)
+            lstAvailableActions.SelectedItems.Clear();
+            foreach (CommandInfo item in collectionViewGroup.Items)
             {
-                ai = listBoxItem.Content as ActionInfo;
-                IApplication app = lstAvailableApplication.SelectedItem as IApplication;
-                if (ai != null && newGestureName != ai.GestureName)
-                {
-                    if (app != null)
-                    {
-                        IAction action = app.Actions.First(a => a.Name.Equals(ai.ActionName, StringComparison.Ordinal));
-                        ai.GestureName = action.GestureName = newGestureName;
-
-                        ApplicationManager.Instance.SaveApplications();
-                    }
-                }
-                else return;
+                lstAvailableActions.SelectedItems.Add(item);
+                infoList.Add(item);
             }
-            RefreshGroup(newGestureName);
-            SelectAction(ai);
-        }
 
-        private void ImportActionMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.OpenFileDialog ofdApplications = new Microsoft.Win32.OpenFileDialog()
-            {
-                Filter = LocalizationProvider.Instance.GetTextValue("Action.ActionFile") + "|*.json;*.act",
-                Title = LocalizationProvider.Instance.GetTextValue("Action.ImportActions"),
-                CheckFileExists = true
-            };
-            if (ofdApplications.ShowDialog().Value)
-            {
-                int addcount = 0;
-                var newApps = System.IO.Path.GetExtension(ofdApplications.FileName)
-                    .Equals(".act", StringComparison.OrdinalIgnoreCase)
-                    ? FileManager.LoadObject<List<IApplication>>(ofdApplications.FileName, false, true)
-                    : FileManager.LoadObject<List<IApplication>>(ofdApplications.FileName,
-                        new Type[]
-                        {
-                            typeof (GlobalApplication), typeof (UserApplication), typeof (IgnoredApplication),
-                            typeof (Applications.Action)
-                        }, false);
+            var sourceAction = infoList.First().Action;
+            var selectedApplication = (IApplication)lstAvailableApplication.SelectedItem;
+            ActionDialog actionDialog = new ActionDialog(sourceAction, selectedApplication);
+            var result = actionDialog.ShowDialog();
 
-                if (newApps != null)
+            if (result != null && result.Value)
+            {
+                var newAction = actionDialog.NewAction;
+                selectedApplication.RemoveAction(newAction);
+                selectedApplication.AddAction(newAction);
+
+                if (newAction != sourceAction)
                 {
-                    foreach (IApplication newApp in newApps)
+                    lstAvailableActions.SelectedItem = null;
+                    foreach (CommandInfo info in infoList)
                     {
-                        if (newApp is IgnoredApplication) continue;
-                        if (ApplicationManager.Instance.ApplicationExists(newApp.Name))
-                        {
-                            var existingApp = ApplicationManager.Instance.Applications.Find(a => a.Name == newApp.Name);
-                            foreach (IAction newAction in newApp.Actions)
-                            {
-                                if (existingApp.Actions.Exists(action => action.Name.Equals(newAction.Name)))
-                                {
-                                    var result =
-                                        MessageBox.Show(
-                                            String.Format(
-                                                LocalizationProvider.Instance.GetTextValue("Action.Messages.ReplaceConfirm"),
-                                                newAction.Name, existingApp.Name),
-                                            LocalizationProvider.Instance.GetTextValue("Action.Messages.ReplaceConfirmTitle"),
-                                            MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-                                    if (result == MessageBoxResult.Yes)
-                                    {
-                                        existingApp.Actions.RemoveAll(ac => ac.Name.Equals(newAction.Name));
-                                        existingApp.AddAction(newAction);
-                                        addcount++;
-                                    }
-                                    else if (result == MessageBoxResult.Cancel) goto End;
-                                }
-                                else
-                                {
-                                    existingApp.AddAction(newAction);
-                                    addcount++;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            addcount += newApp.Actions.Count;
-                            ApplicationManager.Instance.AddApplication(newApp);
-                        }
+                        sourceAction.RemoveCommand(info.Command);
+                        newAction.AddCommand(info.Command);
                     }
                 }
-                End:
-                if (addcount != 0)
+
+                var emptyActions = selectedApplication.Actions.Where(a => a.Commands == null || a.Commands.Count() == 0).ToList();
+                foreach (var action in emptyActions)
                 {
-                    ApplicationManager.Instance.SaveApplications();
-                    BindApplications();
-                    lstAvailableApplication.SelectedIndex = 0;
+                    selectedApplication.RemoveAction(action);
                 }
-                MessageBox.Show(
-                    String.Format(LocalizationProvider.Instance.GetTextValue("Action.Messages.ImportComplete"), addcount),
-                    LocalizationProvider.Instance.GetTextValue("Action.Messages.ImportCompleteTitle"));
+                ApplicationManager.Instance.SaveApplications();
             }
         }
 
-        private void ExportAllActionMenuItem_Click(object sender, RoutedEventArgs e)
+        private void ExportActionMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            Microsoft.Win32.SaveFileDialog sfdApplications = new Microsoft.Win32.SaveFileDialog()
-            {
-                Filter = LocalizationProvider.Instance.GetTextValue("Action.ActionFile") + "|*.act",
-                FileName = LocalizationProvider.Instance.GetTextValue("Action.ActionFile") + ".act",
-                Title = LocalizationProvider.Instance.GetTextValue("Action.ExportActions"),
-                AddExtension = true,
-                DefaultExt = "act",
-                ValidateNames = true
-            };
-            if (sfdApplications.ShowDialog().Value)
-            {
-                FileManager.SaveObject(ApplicationManager.Instance.Applications.Where(app => !(app is IgnoredApplication)).ToList(), sfdApplications.FileName, true);
-            }
-        }
-        private void ExportEnableActionMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.SaveFileDialog sfdApplications = new Microsoft.Win32.SaveFileDialog()
-            {
-                Filter = LocalizationProvider.Instance.GetTextValue("Action.ActionFile") + "|*.act",
-                FileName = LocalizationProvider.Instance.GetTextValue("Action.ActionFile") + ".act",
-                Title = LocalizationProvider.Instance.GetTextValue("Action.ExportSpecificActions"),
-                AddExtension = true,
-                DefaultExt = "act",
-                ValidateNames = true
-            };
-            if (sfdApplications.ShowDialog().Value)
-            {
-                IApplication currentApp = lstAvailableApplication.SelectedItem as IApplication;
-                if (currentApp != null)
-                {
-                    List<IApplication> exportedApp = new List<IApplication>(1);
-                    if (currentApp is GlobalApplication)
-                    {
-                        exportedApp.Add(new GlobalApplication()
-                        {
-                            Actions = currentApp.Actions.Where(a => a.IsEnabled).ToList(),
-                            Group = currentApp.Group,
-                            IsRegEx = currentApp.IsRegEx,
-                            MatchString = currentApp.MatchString,
-                            MatchUsing = currentApp.MatchUsing
-                        });
-                    }
-                    else
-                    {
-                        UserApplication userApplication = currentApp as UserApplication;
-                        if (userApplication != null)
-                            exportedApp.Add(new UserApplication()
-                            {
-                                Actions = userApplication.Actions.Where(a => a.IsEnabled).ToList(),
-                                Group = userApplication.Group,
-                                IsRegEx = userApplication.IsRegEx,
-                                MatchString = userApplication.MatchString,
-                                MatchUsing = userApplication.MatchUsing,
-                                AllowSingleStroke = userApplication.AllowSingleStroke,
-                                InterceptTouchInput = userApplication.InterceptTouchInput,
-                                Name = userApplication.Name
-                            });
-                    }
-                    FileManager.SaveObject(exportedApp, sfdApplications.FileName, true);
-                }
-            }
+            ExportImportDialog exportImportDialog = new ExportImportDialog(true, false, ApplicationManager.Instance.Applications, GestureSign.Common.Gestures.GestureManager.Instance.Gestures);
+            exportImportDialog.ShowDialog();
         }
 
         private void lstAvailableApplication_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            UserApplication userApplication = lstAvailableApplication.SelectedItem as UserApplication;
-            if (userApplication == null)
-            {
-                InterceptTouchInputMenuItem.IsChecked =
-                    InterceptTouchInputMenuItem.IsEnabled =
-                    AllowSingleMenuItem.IsChecked =
-                    AllowSingleMenuItem.IsEnabled = false;
-            }
-            else
-            {
-                AllowSingleMenuItem.IsEnabled = true;
-                InterceptTouchInputMenuItem.IsEnabled = AppConfig.UiAccess;
-                InterceptTouchInputMenuItem.IsChecked = userApplication.InterceptTouchInput;
-                AllowSingleMenuItem.IsChecked = userApplication.AllowSingleStroke;
-            }
+            PasteActionMenuItem2.IsEnabled = _commandClipboard.Count != 0;
 
-            PasteActionMenuItem2.IsEnabled = _actionClipboard != null;
+            EditMenuItem.IsEnabled = DeleteMenuItem.IsEnabled = lstAvailableApplication.SelectedItem is UserApp;
         }
 
         private void LstAvailableActions_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            PasteActionMenuItem.IsEnabled = _actionClipboard != null;
+            PasteActionMenuItem.IsEnabled = _commandClipboard.Count != 0;
             CopyActionMenuItem.IsEnabled = CutActionMenuItem.IsEnabled = lstAvailableActions.SelectedIndex != -1;
         }
 
@@ -615,86 +317,69 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void PasteActionMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (_actionClipboard == null) return;
+            if (_commandClipboard.Count == 0) return;
 
             var targetApplication = lstAvailableApplication.SelectedItem as IApplication;
             if (targetApplication == null) return;
 
-            if (targetApplication.Actions.Exists(a => a.Name.Equals(_actionClipboard.Name, StringComparison.Ordinal)))
+            lstAvailableActions.SelectedItem = null;
+            foreach (var actionGroup in _commandClipboard.GroupBy(ci => ci.Action))
             {
-                UIHelper.GetParentWindow(this)
-                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExistsTitle"),
-                        string.Format(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ActionExists"),
-                            _actionClipboard.Name, targetApplication.Name),
-                        MessageDialogStyle.Affirmative, new MetroDialogSettings()
-                        {
-                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
-                            ColorScheme = MetroDialogColorScheme.Accented,
-                            AnimateShow = false,
-                            AnimateHide = false
-                        });
-                return;
-            }
+                IAction currentAction;
+                if (targetApplication.Actions.Contains(actionGroup.Key))
+                {
+                    currentAction = actionGroup.Key;
+                }
+                else
+                {
+                    currentAction = ((GestureSign.Common.Applications.Action)actionGroup.Key).Clone() as GestureSign.Common.Applications.Action;
+                    currentAction.Commands = new List<ICommand>(1);
+                    targetApplication.AddAction(currentAction);
+                }
 
-            Applications.Action newAction = new Applications.Action()
-            {
-                ActionSettings = _actionClipboard.ActionSettings,
-                GestureName = _actionClipboard.GestureName,
-                IsEnabled = _actionClipboard.IsEnabled,
-                Name = _actionClipboard.Name,
-                PluginClass = _actionClipboard.PluginClass,
-                PluginFilename = _actionClipboard.PluginFilename
-            };
-            targetApplication.AddAction(newAction);
+                foreach (var info in actionGroup)
+                {
+                    if (_cutActionSource != null)
+                    {
+                        info.Action.RemoveCommand(info.Command);
+                        if (_cutActionSource != targetApplication && info.Action.Commands.Count() == 0)
+                            _cutActionSource.RemoveAction(info.Action);
+                    }
+
+                    var newCommand = ((Command)info.Command).Clone() as Command;
+                    newCommand.Name = ApplicationManager.GetNextCommandName(newCommand.Name, info.Action);
+
+                    currentAction.AddCommand(newCommand);
+                }
+            }
 
             if (_cutActionSource != null)
             {
-                _cutActionSource.RemoveAction(_actionClipboard);
                 _cutActionSource = null;
-                _actionClipboard = null;
+                _commandClipboard.Clear();
             }
 
-            RefreshActions(false);
-
             ApplicationManager.Instance.SaveApplications();
-        }
-
-        private void InterceptTouchInputMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            UserApplication selectedItem = lstAvailableApplication.SelectedItem as UserApplication;
-            if (selectedItem == null) return;
-            var menuItem = (MenuItem)sender;
-            selectedItem.InterceptTouchInput = menuItem.IsChecked;
-
-            ApplicationManager.Instance.SaveApplications();
-
-        }
-        private void AllowSingleMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            var menuItem = (MenuItem)sender;
-            var userApplication = lstAvailableApplication.SelectedItem as UserApplication;
-            if (userApplication != null)
-            {
-                userApplication.AllowSingleStroke = menuItem.IsChecked;
-                ApplicationManager.Instance.SaveApplications();
-            }
         }
 
         private void lstAvailableApplication_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.AddedItems.Count == 0) return;
-            RefreshActions(true);
             IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
             if (selectedApp == null)
             {
-                ToggleAllActionsCheckBox.IsEnabled = false;
+                ToggleAllActionsToggleSwitch.IsEnabled = false;
                 return;
             }
-            ToggleAllActionsCheckBox.IsEnabled = true;
-            ToggleAllActionsCheckBox.IsChecked = selectedApp.Actions.All(a => a.IsEnabled);
 
-            EditAppButton.Visibility = DeleteAppButton.Visibility =
-                selectedApp is UserApplication ? Visibility.Visible : Visibility.Hidden;
+            var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
+            if (commandInfoProvider == null) return;
+            commandInfoProvider.RefreshCommandInfos(selectedApp, lstAvailableActions);
+
+            ToggleAllActionsToggleSwitch.IsEnabled = true;
+            ToggleAllActionsToggleSwitch.IsChecked = selectedApp.Actions.SelectMany(a => a.Commands).All(c => c.IsEnabled);
+
+            Dispatcher.InvokeAsync(() => lstAvailableApplication.ScrollIntoView(selectedApp), DispatcherPriority.Background);
         }
 
         private void NewApplicationButton_OnClick(object sender, RoutedEventArgs e)
@@ -703,33 +388,37 @@ namespace GestureSign.ControlPanel.MainWindowControls
             applicationDialog.ShowDialog();
         }
 
-        private void EditAppButton_Click(object sender, RoutedEventArgs e)
+        private void EditApplication_Click(object sender, RoutedEventArgs e)
         {
-            if (lstAvailableApplication.SelectedItem != null)
+            EditApplication();
+        }
+
+        private void EditApplication()
+        {
+            var userapp = lstAvailableApplication.SelectedItem as UserApp;
+            if (userapp != null)
             {
-                ApplicationDialog applicationDialog = new ApplicationDialog(lstAvailableApplication.SelectedItem as IApplication);
+                ApplicationDialog applicationDialog = new ApplicationDialog(userapp);
                 applicationDialog.ShowDialog();
             }
         }
 
-        private async void DeleteAppButton_Click(object sender, RoutedEventArgs e)
+        private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (await
-                UIHelper.GetParentWindow(this)
-                    .ShowMessageAsync(LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteConfirmTitle"),
-                        LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteAppConfirm"),
-                        MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
-                        {
-                            AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
-                            NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
-                            ColorScheme = MetroDialogColorScheme.Accented,
-                            AnimateHide = false,
-                            AnimateShow = false
-                        }) == MessageDialogResult.Affirmative)
+            var selectedApp = lstAvailableApplication.SelectedItem as UserApp;
+            if (selectedApp != null && UIHelper.GetParentWindow(this)
+                .ShowModalMessageExternal(
+                    LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteConfirmTitle"),
+                    String.Format(LocalizationProvider.Instance.GetTextValue("Action.Messages.DeleteAppConfirm"), selectedApp.Name),
+                    MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings()
+                    {
+                        AffirmativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.OK"),
+                        NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
+                        ColorScheme = MetroDialogColorScheme.Accented,
+                    }) == MessageDialogResult.Affirmative)
             {
-                ApplicationManager.Instance.RemoveApplication((IApplication)lstAvailableApplication.SelectedItem);
+                ApplicationManager.Instance.RemoveApplication(selectedApp);
 
-                BindApplications();
                 lstAvailableApplication.SelectedIndex = 0;
                 ApplicationManager.Instance.SaveApplications();
             }
@@ -737,79 +426,132 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void MoveUpButton_Click(object sender, RoutedEventArgs e)
         {
-            var selected = (lstAvailableActions.SelectedItem as ActionInfo);
-            var actionInfoGroup =
-                  ActionInfos.Where(ai => ai.GestureName.Equals(selected.GestureName, StringComparison.Ordinal)).ToList();
-            int index = actionInfoGroup.IndexOf(selected);
-            if (index > 0)
+            var selected = (CommandInfo)lstAvailableActions.SelectedItem;
+            int commandIndex = selected.Action.Commands.ToList().IndexOf(selected.Command);
+            if (commandIndex > 0)
             {
-                ActionInfos.Move(ActionInfos.IndexOf(selected), ActionInfos.IndexOf(actionInfoGroup[index - 1]));
-                RefreshGroup(selected.GestureName);
-                lstAvailableActions.SelectedItem = selected;
-
-
-                IApplication selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
-                if (selectedApplication == null) return;
-
-                int selectedIndex = selectedApplication.Actions.FindIndex(a => a.Name.Equals(selected.ActionName, StringComparison.Ordinal));
-                int lastIndex = selectedApplication.Actions.FindLastIndex(selectedIndex - 1,
-                    a => a.GestureName.Equals(selected.GestureName, StringComparison.Ordinal));
-
-                var temp = selectedApplication.Actions[lastIndex];
-                selectedApplication.Actions[lastIndex] = selectedApplication.Actions[selectedIndex];
-                selectedApplication.Actions[selectedIndex] = temp;
-
+                selected.Action.MoveCommand(commandIndex, commandIndex - 1);
                 ApplicationManager.Instance.SaveApplications();
             }
         }
 
         private void MoveDownButton_Click(object sender, RoutedEventArgs e)
         {
-            var selected = (lstAvailableActions.SelectedItem as ActionInfo);
-            var actionInfoGroup =
-                  ActionInfos.Where(ai => ai.GestureName.Equals(selected.GestureName, StringComparison.Ordinal)).ToList();
-            int index = actionInfoGroup.IndexOf(selected);
-            if (index + 1 < actionInfoGroup.Count)
+            var selected = (CommandInfo)lstAvailableActions.SelectedItem;
+            int commandIndex = selected.Action.Commands.ToList().IndexOf(selected.Command);
+            if (commandIndex + 1 < selected.Action.Commands.Count())
             {
-
-                ActionInfos.Move(ActionInfos.IndexOf(selected), ActionInfos.IndexOf(actionInfoGroup[index + 1]));
-                RefreshGroup(selected.GestureName);
-                lstAvailableActions.SelectedItem = selected;
-
-
-                IApplication selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
-                if (selectedApplication == null) return;
-
-                int selectedIndex = selectedApplication.Actions.FindIndex(a => a.Name.Equals(selected.ActionName, StringComparison.Ordinal));
-                int nextIndex = selectedApplication.Actions.FindIndex(selectedIndex + 1,
-                    a => a.GestureName.Equals(selected.GestureName, StringComparison.Ordinal));
-
-                var temp = selectedApplication.Actions[nextIndex];
-                selectedApplication.Actions[nextIndex] = selectedApplication.Actions[selectedIndex];
-                selectedApplication.Actions[selectedIndex] = temp;
-
+                selected.Action.MoveCommand(commandIndex, commandIndex + 1);
                 ApplicationManager.Instance.SaveApplications();
             }
         }
 
-        private void ToggleAllActionsCheckBox_Click(object sender, RoutedEventArgs e)
+        private void ToggleAllActionsToggleSwitch_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var toggleButton = ((ToggleButton)sender);
+                var toggleSwitch = ((ToggleSwitch)sender);
 
                 IApplication app = lstAvailableApplication.SelectedItem as IApplication;
                 if (app == null) return;
-
-                app.Actions.ForEach(a => a.IsEnabled = toggleButton.IsChecked.Value);
+                foreach (var command in app.Actions.SelectMany(a => a.Commands))
+                {
+                    command.IsEnabled = toggleSwitch.IsChecked.Value;
+                }
                 ApplicationManager.Instance.SaveApplications();
 
-                foreach (ActionInfo ai in ActionInfos)
+                foreach (CommandInfo ai in lstAvailableActions.Items)
                 {
-                    ai.IsEnabled = toggleButton.IsChecked.Value;
+                    ai.IsEnabled = toggleSwitch.IsChecked.Value;
                 }
             }
             catch { }
+        }
+
+        private void ListBoxItem_OnMouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var listBoxItem = (ListBoxItem)sender;
+            var listBox = UIHelper.GetParentDependencyObject<ListBox>(listBoxItem);
+            if (ReferenceEquals(listBox, lstAvailableActions))
+                Dispatcher.InvokeAsync(EditCommand, DispatcherPriority.Input);
+            else if (ReferenceEquals(listBox, lstAvailableApplication))
+                Dispatcher.InvokeAsync(EditApplication, DispatcherPriority.Input);
+        }
+
+        private void DownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            DownloadWindow DownloadWindow = new DownloadWindow();
+            DownloadWindow.Show();
+        }
+
+        protected override void OnDrop(DragEventArgs e)
+        {
+            base.OnDrop(e);
+
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                var newApps = new List<IApplication>();
+                var newGestures = GestureManager.Instance.Gestures.ToList();
+                try
+                {
+                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    foreach (var file in files)
+                    {
+                        switch (Path.GetExtension(file).ToLower())
+                        {
+                            case GestureSign.Common.Constants.ActionExtension:
+                                var apps = FileManager.LoadObject<List<IApplication>>(file, false, true);
+                                if (apps != null)
+                                {
+                                    newApps.AddRange(apps);
+                                }
+                                break;
+                            case ".exe":
+                                lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), file);
+                                break;
+                            case ".lnk":
+                                WshShell shell = new WshShell();
+                                IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
+                                if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                {
+                                    lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), link.TargetPath);
+                                }
+                                break;
+                            case GestureSign.Common.Constants.ArchivesExtension:
+                                {
+                                    IEnumerable<IApplication> applications;
+                                    IEnumerable<IGesture> gestures;
+                                    Archive.LoadFromArchive(file, out applications, out gestures);
+
+                                    if (applications != null)
+                                        newApps.AddRange(applications);
+                                    if (gestures != null)
+                                    {
+                                        foreach (var gesture in gestures)
+                                        {
+                                            if (newGestures.Find(g => g.Name == gesture.Name) == null)
+                                                newGestures.Add(gesture);
+                                        }
+                                    }
+                                    break;
+                                }
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    UIHelper.GetParentWindow(this).ShowModalMessageExternal(exception.GetType().Name, exception.Message);
+                }
+                if (newApps.Count != 0)
+                {
+                    Dispatcher.InvokeAsync(() =>
+                    {
+                        ExportImportDialog exportImportDialog = new ExportImportDialog(false, false, newApps, newGestures);
+                        exportImportDialog.ShowDialog();
+                    }, DispatcherPriority.Background);
+                }
+            }
+            e.Handled = true;
         }
     }
 }

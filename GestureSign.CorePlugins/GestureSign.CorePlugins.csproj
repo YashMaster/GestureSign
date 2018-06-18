@@ -23,7 +23,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\GestureSign.ControlPanel\bin\Debug\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -36,7 +36,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\GestureSign.ControlPanel\bin\Release\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -47,7 +47,16 @@
     <StartupObject />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'uiAccessRelease|AnyCPU'">
-    <OutputPath>..\GestureSign.ControlPanel\bin\uiAccessRelease\</OutputPath>
+    <OutputPath>..\bin\uiAccessRelease\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Centennial|AnyCPU'">
+    <OutputPath>..\bin\Centennial\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
@@ -67,9 +76,9 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
-    <Reference Include="Windows">
-      <HintPath>C:\Program Files (x86)\Windows Kits\8.1\References\CommonConfiguration\Neutral\Annotated\Windows.winmd</HintPath>
-      <Private>False</Private>
+    <Reference Include="Windows, Version=255.255.255.255, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files (x86)\Windows Kits\10\UnionMetadata\Windows.winmd</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
   </ItemGroup>
@@ -79,6 +88,8 @@
     <Compile Include="ActivateWindow\ActivateWindowUI.xaml.cs">
       <DependentUpon>ActivateWindowUI.xaml</DependentUpon>
     </Compile>
+    <Compile Include="IconSource.cs" />
+    <Compile Include="KeyboardHelper.cs" />
     <Compile Include="Delay\Delay.cs" />
     <Compile Include="Delay\DelayUI.xaml.cs">
       <DependentUpon>DelayUI.xaml</DependentUpon>
@@ -92,11 +103,18 @@
     <Compile Include="LaunchApp\LaunchAppView.xaml.cs">
       <DependentUpon>LaunchAppView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MouseActions\Crosshair.xaml.cs">
+      <DependentUpon>Crosshair.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MouseActions\MouseActionsPlugin.cs" />
     <Compile Include="MouseActions\MouseActionsSettings.cs" />
     <Compile Include="MouseActions\MouseActionsUI.xaml.cs">
       <DependentUpon>MouseActionsUI.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OpenFile\OpenFileControl.xaml.cs">
+      <DependentUpon>OpenFileControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OpenFile\OpenFilePlugin.cs" />
     <Compile Include="SendMessage\Messages.cs" />
     <Compile Include="SendMessage\SendMessagePlugin.cs" />
     <Compile Include="SendMessage\SendMessageSetting.cs" />
@@ -194,7 +212,15 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="MouseActions\Crosshair.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="MouseActions\MouseActionsUI.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OpenFile\OpenFileControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -223,7 +249,17 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="MouseActions\crosshair.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <Content Include="Languages\en.xml" />
+    <Content Include="Languages\zh.xml" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(XamlSpyInstallPath)MSBuild\FirstFloor.XamlSpy.WPF.targets" Condition="'$(XamlSpyInstallPath)' != '' and '$(Configuration)' == 'DEBUG'" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

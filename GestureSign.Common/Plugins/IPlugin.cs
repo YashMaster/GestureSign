@@ -1,39 +1,36 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using GestureSign.Common.Plugins;
-
-using System.Windows.Controls;
-using System.Xaml;
-
-namespace GestureSign.Common.Plugins
+﻿namespace GestureSign.Common.Plugins
 {
-	public interface IPlugin
-	{
-		#region Properties
+    public interface IPlugin
+    {
+        #region Properties
 
-		string Name { get; }
-		string Category { get; }
-		string Description { get; }
-		bool IsAction { get; }
-        UserControl GUI { get; }
+        string Name { get; }
+        string Category { get; }
+        string Description { get; }
+        bool IsAction { get; }
+        object GUI { get; }
+        bool ActivateWindowDefault { get; }
 
-		#endregion
+        /// <summary>
+        /// System.Windows.Media.Geometry
+        /// </summary>
+        object Icon { get; }
 
-		#region Methods
+        #endregion
 
-		void Initialize();
-		bool Gestured(PointInfo ActionPoint);
-		bool Deserialize(string SerializedData);
-		string Serialize();
+        #region Methods
 
-		#endregion
+        void Initialize();
+        bool Gestured(PointInfo ActionPoint);
+        bool Deserialize(string SerializedData);
+        string Serialize();
 
-		#region Host Controls
+        #endregion
 
-		IHostControl HostControl { get; set; }
+        #region Host Controls
 
-		#endregion
-	}
+        IHostControl HostControl { get; set; }
+
+        #endregion
+    }
 }

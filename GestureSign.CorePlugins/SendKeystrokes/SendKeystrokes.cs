@@ -1,7 +1,5 @@
 ﻿using System;
 using GestureSign.Common.Plugins;
-
-using System.Windows.Controls;
 using WindowsInput;
 using GestureSign.Common.Localization;
 
@@ -40,7 +38,7 @@ namespace GestureSign.CorePlugins.SendKeystrokes
             get { return true; }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get
             {
@@ -51,12 +49,19 @@ namespace GestureSign.CorePlugins.SendKeystrokes
             }
         }
 
+        public bool ActivateWindowDefault
+        {
+            get { return true; }
+        }
+
         public SendKeystrokesControl TypedGUI
         {
             get { return (SendKeystrokesControl)GUI; }
         }
 
         public IHostControl HostControl { get; set; }
+
+        public object Icon => IconSource.Keyboard;
 
         #endregion
 
@@ -71,9 +76,6 @@ namespace GestureSign.CorePlugins.SendKeystrokes
         {
             try
             {
-                if (ActionPoint.WindowHandle.ToInt64() !=
-                    ManagedWinapi.Windows.SystemWindow.ForegroundWindow.HWnd.ToInt64())
-                    ManagedWinapi.Windows.SystemWindow.ForegroundWindow = ActionPoint.Window;
                 if (_useSendInput)
                 {
                     InputSimulator simulator = new InputSimulator();

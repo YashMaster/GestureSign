@@ -30,24 +30,26 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -79,7 +81,7 @@
     <StartupObject />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'uiAccessRelease|AnyCPU'">
-    <OutputPath>bin\uiAccessRelease\</OutputPath>
+    <OutputPath>..\bin\uiAccessRelease\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
@@ -88,20 +90,33 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Centennial|AnyCPU'">
+    <OutputPath>..\bin\Centennial\</OutputPath>
+    <DefineConstants>TRACE;ConvertedDesktopApp</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MahApps.Metro, Version=1.2.4.0, Culture=neutral, PublicKeyToken=f4fb5a3c4d1e5b4f, processorArchitecture=MSIL">
-      <HintPath>..\packages\MahApps.Metro.1.2.4.0\lib\net45\MahApps.Metro.dll</HintPath>
+    <Reference Include="MahApps.Metro, Version=1.4.3.0, Culture=neutral, PublicKeyToken=f4fb5a3c4d1e5b4f, processorArchitecture=MSIL">
+      <HintPath>..\packages\MahApps.Metro.1.4.3\lib\net45\MahApps.Metro.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.Win32.TaskScheduler">
-      <HintPath>..\packages\TaskScheduler.2.3.1\lib\4\Microsoft.Win32.TaskScheduler.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.WindowsRuntime, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETCore\v4.5\System.Runtime.WindowsRuntime.dll</HintPath>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Interactivity, Version=4.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\MahApps.Metro.1.2.4.0\lib\net45\System.Windows.Interactivity.dll</HintPath>
+      <HintPath>..\packages\MahApps.Metro.1.4.3\lib\net45\System.Windows.Interactivity.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Xml" />
@@ -111,6 +126,9 @@
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
     </Reference>
     <Reference Include="UIAutomationProvider" />
+    <Reference Include="Windows">
+      <HintPath>C:\Program Files (x86)\Windows Kits\10\UnionMetadata\Windows.winmd</HintPath>
+    </Reference>
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
@@ -120,16 +138,48 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Common\ErrorReport.cs" />
-    <Compile Include="Converters\MatchUsing2VisibilityConverter.cs" />
+    <Compile Include="Common\Archive.cs" />
+    <Compile Include="Common\DragScrolling.cs" />
+    <Compile Include="Common\TouchWindow.cs" />
+    <Compile Include="Converters\ActionTitleConverter.cs" />
+    <Compile Include="Converters\CommandConverter.cs" />
+    <Compile Include="Converters\GestureButtonImageConverter.cs" />
+    <Compile Include="Converters\GroupHeaderConverter.cs" />
+    <Compile Include="Converters\GestureGroupConverter.cs" />
+    <Compile Include="Converters\GestureImageConverter.cs" />
+    <Compile Include="Dialogs\ActionDialog.xaml.cs">
+      <DependentUpon>ActionDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\DownloadWindow.xaml.cs">
+      <DependentUpon>DownloadWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\ExportImportDialog.xaml.cs">
+      <DependentUpon>ExportImportDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\ApplicationSelector.xaml.cs">
+      <DependentUpon>ApplicationSelector.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\LogWindow.xaml.cs">
+      <DependentUpon>LogWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\GestureSelector.xaml.cs">
+      <DependentUpon>GestureSelector.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ViewModel\ActionListItem.cs" />
+    <Compile Include="ViewModel\AppListItem.cs" />
+    <Compile Include="ViewModel\CommandInfoProvider.cs" />
+    <Compile Include="ViewModel\MouseActionDescription.cs" />
+    <Compile Include="Converters\Application2VisibilityConverter.cs" />
     <Compile Include="Converters\MatchUsing2StringConverter.cs" />
     <Compile Include="Converters\MatchStringConverter.cs" />
     <Compile Include="Converters\ApplicationListHeaderConverter.cs" />
     <Compile Include="Converters\BoolConverter.cs" />
-    <Compile Include="Converters\VisibilityConverter.cs" />
-    <Compile Include="Common\ActionInfo.cs" />
+    <Compile Include="ViewModel\CommandInfo.cs" />
     <Compile Include="Dialogs\ApplicationDialog.xaml.cs">
       <DependentUpon>ApplicationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\EditConditionDialog.xaml.cs">
+      <DependentUpon>EditConditionDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Localization\LocalizationProviderEx.cs" />
     <Compile Include="MessageProcessor.cs" />
@@ -138,8 +188,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\ActionDialog.cs">
-      <DependentUpon>ActionDialog.xaml</DependentUpon>
+    <Compile Include="Dialogs\CommandDialog.xaml.cs">
+      <DependentUpon>CommandDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Common\ApplicationListViewItem.cs" />
     <Compile Include="MainWindowControls\AvailableActions.cs">
@@ -147,7 +197,7 @@
     </Compile>
     <Compile Include="Common\GestureImage.cs" />
     <Compile Include="Common\GestureItem.cs" />
-    <Compile Include="Common\MatchUsingRadio.xaml.cs">
+    <Compile Include="UserControls\MatchUsingRadio.xaml.cs">
       <DependentUpon>MatchUsingRadio.xaml</DependentUpon>
     </Compile>
     <Compile Include="Common\UIHelper.cs" />
@@ -157,10 +207,10 @@
     <Compile Include="MainWindowControls\AvailableGestures.cs">
       <DependentUpon>AvailableGestures.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Common\Crosshair.xaml.cs">
+    <Compile Include="UserControls\Crosshair.xaml.cs">
       <DependentUpon>Crosshair.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\GestureDefinition.cs">
+    <Compile Include="Dialogs\GestureDefinition.xaml.cs">
       <DependentUpon>GestureDefinition.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainWindowControls\Options.cs">
@@ -170,9 +220,33 @@
       <DependentUpon>RuningApplicationsFlyout.xaml</DependentUpon>
     </Compile>
     <Compile Include="Common\SliderTools.cs" />
-    <Compile Include="ValidationRules\GestureNameValidationRule.cs" />
+    <Compile Include="ViewModel\ApplicationItemProvider.cs" />
     <Compile Include="ViewModel\GestureItemProvider.cs" />
+    <Page Include="Dialogs\ActionDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\DownloadWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\ExportImportDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\ApplicationSelector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Dialogs\ApplicationDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\EditConditionDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\LogWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -188,7 +262,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Page Include="Dialogs\ActionDialog.xaml">
+    <Page Include="Dialogs\CommandDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -196,7 +270,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Common\MatchUsingRadio.xaml">
+    <Page Include="UserControls\GestureSelector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\MatchUsingRadio.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -208,7 +286,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Common\Crosshair.xaml">
+    <Page Include="UserControls\Crosshair.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -239,6 +317,12 @@
       <SubType>Designer</SubType>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="Defaults\Actions.gsa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Defaults\Gestures.gest">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Properties\app.manifest" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
@@ -265,7 +349,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\crosshair.cur" />
+    <None Include="Assets\crosshair.cur">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Resources\crosshair.ico" />
@@ -314,9 +400,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(XamlSpyInstallPath)MSBuild\FirstFloor.XamlSpy.WPF.targets" Condition="'$(XamlSpyInstallPath)' != '' and '$(Configuration)' == 'DEBUG'" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

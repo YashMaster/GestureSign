@@ -1,99 +1,97 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using GestureSign.Common.Plugins;
-
-using System.Windows.Controls;
+﻿using GestureSign.Common.Plugins;
 using GestureSign.Common.Localization;
 
 namespace GestureSign.CorePlugins
 {
-	public class MaximizeRestore : IPlugin
-	{
-		#region Private Variables
+    public class MaximizeRestore : IPlugin
+    {
+        #region Private Variables
 
-		IHostControl _HostControl = null;
+        IHostControl _HostControl = null;
 
-		#endregion
+        #endregion
 
-		#region Public Properties
+        #region Public Properties
 
-		public string Name
-		{
+        public string Name
+        {
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.MaximizeRestore.Name"); }
-		}
+        }
 
-		public string Description
-		{
+        public string Description
+        {
             get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.MaximizeRestore.Description"); }
-		}
+        }
 
-		public UserControl GUI
-		{
-			get { return null; }
-		}
+        public object GUI
+        {
+            get { return null; }
+        }
 
-		public string Category
-		{
-			get { return "Windows"; }
-		}
+        public bool ActivateWindowDefault
+        {
+            get { return true; }
+        }
 
-		public bool IsAction
-		{
-			get { return true; }
-		}
+        public string Category
+        {
+            get { return "Windows"; }
+        }
 
-		#endregion
+        public bool IsAction
+        {
+            get { return true; }
+        }
 
-		#region Public Methods
+        public object Icon => IconSource.MaximizeRestore;
 
-		public void Initialize()
-		{
+        #endregion
 
-		}
+        #region Public Methods
 
-		public void ShowGUI(bool IsNew)
-		{
-			// Nothing to do here
-		}
+        public void Initialize()
+        {
 
-		public bool Gestured(Common.Plugins.PointInfo ActionPoint)
-		{
-			if (ActionPoint.WindowHandle.ToInt64() != ManagedWinapi.Windows.SystemWindow.ForegroundWindow.HWnd.ToInt64())
-				ManagedWinapi.Windows.SystemWindow.ForegroundWindow = ActionPoint.Window;
+        }
 
-			// Toggle window state
-			if (ActionPoint.Window.WindowState == System.Windows.Forms.FormWindowState.Maximized)
-				ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Normal;
-			else
-				ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Maximized;
+        public void ShowGUI(bool IsNew)
+        {
+            // Nothing to do here
+        }
 
-			return true;
-		}
+        public bool Gestured(Common.Plugins.PointInfo ActionPoint)
+        {
+            // Toggle window state
+            if (ActionPoint.Window.WindowState == System.Windows.Forms.FormWindowState.Maximized)
+                ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Normal;
+            else
+                ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Maximized;
 
-		public bool Deserialize(string SerializedData)
+            return true;
+        }
+
+        public bool Deserialize(string SerializedData)
         {
             return true;
-			// Nothing to do here
-		}
+            // Nothing to do here
+        }
 
-		public string Serialize()
-		{
-			// Nothing to serialize
-			return "";
-		}
+        public string Serialize()
+        {
+            // Nothing to serialize
+            return "";
+        }
 
-		#endregion
+        #endregion
 
-		#region Host Control
+        #region Host Control
 
-		public IHostControl HostControl
-		{
-			get { return _HostControl; }
-			set { _HostControl = value; }
-		}
+        public IHostControl HostControl
+        {
+            get { return _HostControl; }
+            set { _HostControl = value; }
+        }
 
-		#endregion
-	}
+        #endregion
+    }
 }

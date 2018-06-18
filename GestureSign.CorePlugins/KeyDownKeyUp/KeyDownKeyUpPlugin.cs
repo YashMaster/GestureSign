@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using WindowsInput;
 using WindowsInput.Native;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
-using UserControl = System.Windows.Controls.UserControl;
 
 namespace GestureSign.CorePlugins.KeyDownKeyUp
 {
@@ -45,9 +42,14 @@ namespace GestureSign.CorePlugins.KeyDownKeyUp
             get { return GetDescription(); }
         }
 
-        public UserControl GUI
+        public object GUI
         {
             get { return _GUI ?? (_GUI = CreateGui()); }
+        }
+
+        public bool ActivateWindowDefault
+        {
+            get { return false; }
         }
 
         public KeyDownKeyUpUI TypedGUI
@@ -64,6 +66,8 @@ namespace GestureSign.CorePlugins.KeyDownKeyUp
         {
             get { return true; }
         }
+
+        public object Icon => IconSource.Keyboard;
 
         #endregion
 
@@ -139,8 +143,18 @@ namespace GestureSign.CorePlugins.KeyDownKeyUp
 
                     var key = (VirtualKeyCode)k;
                     if (_settings.IsKeyDown)
-                        simulator.Keyboard.KeyDown(key);
-                    else simulator.Keyboard.KeyUp(key);
+                    {
+                        try
+                        {
+                            simulator.Keyboard.KeyDown(key).Sleep(30);
+                        }
+                        catch
+                        {
+                            KeyboardHelper.ResetKeyState(ActionPoint.Window, k);
+                            return false;
+                        }
+                    }
+                    else simulator.Keyboard.KeyUp(key).Sleep(30);
                 }
 
             return true;
