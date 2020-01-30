@@ -131,6 +131,7 @@
   </CommandDialog>
   <EditConditionDialog>
     <Title>编辑条件</Title>
+    <FingerID>手指ID</FingerID>
     <Variables>变量</Variables>
     <Insert>插入</Insert>
     <Sample>示例：finger_2_start_X>100</Sample>
@@ -139,7 +140,7 @@
     <Header>动作</Header>
     <NewAction>新动作</NewAction>
     <NewCommand>新命令</NewCommand>
-    <FromSelected>用当前手势创建新命令</FromSelected>
+    <FromSelected>为当前动作添加新命令</FromSelected>
     <ApplicationFile>GestureSign程序文件</ApplicationFile>
     <ArchiveFile>GestureSign文件</ArchiveFile>
     <ActionCount>  ( {0}个动作 )</ActionCount>
@@ -148,6 +149,8 @@
     <CutAction>剪切</CutAction>
     <CopyAction>复制</CopyAction>
     <PasteAction>粘贴</PasteAction>
+    <PasteToNewAction>粘贴为新动作</PasteToNewAction>
+    <PasteToSelectedAction>粘贴到当前动作</PasteToSelectedAction>
     <Delete>删除</Delete>
     <Edit>编辑</Edit>
     <SelectGesture>(请点击此处以设置手势)</SelectGesture>
@@ -209,7 +212,7 @@
     <Title>选择运行中的窗口</Title>
   </RuningApplicationsFlyout>
   <GestureDefinition>
-    <Edit>编辑手势</Edit>
+    <Edit>重画手势</Edit>
     <ExistingGesture>已保存有相似的手势，是否使用该手势？</ExistingGesture>
     <DrawGesture>请画出手势</DrawGesture>
     <Redraw>重画</Redraw>
@@ -247,6 +250,7 @@
     <Hover>保持悬空画出手势</Hover>
     <InitialTimeoutTitle>手势起始超时</InitialTimeoutTitle>
     <InitialTimeout>{0:F1} 秒后超时</InitialTimeout>
+    <ErrorLogPrompt>错误日志提示</ErrorLogPrompt>
     <WindowsStartup>
       <Header>开机启动</Header>
     </WindowsStartup>

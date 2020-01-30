@@ -255,7 +255,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
 
             var sourceAction = infoList.First().Action;
-            var selectedApplication = (IApplication)lstAvailableApplication.SelectedItem;
+            var selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApplication == null)
+            {
+                selectedApplication = ApplicationManager.Instance.GetAvailableUserApplications().FirstOrDefault(app => app.Actions.Contains(sourceAction));
+                if (selectedApplication == null)
+                    return;
+            }
             ActionDialog actionDialog = new ActionDialog(sourceAction, selectedApplication);
             var result = actionDialog.ShowDialog();
 
@@ -273,12 +279,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                         sourceAction.RemoveCommand(info.Command);
                         newAction.AddCommand(info.Command);
                     }
-                }
-
-                var emptyActions = selectedApplication.Actions.Where(a => a.Commands == null || a.Commands.Count() == 0).ToList();
-                foreach (var action in emptyActions)
-                {
-                    selectedApplication.RemoveAction(action);
                 }
                 ApplicationManager.Instance.SaveApplications();
             }
@@ -299,7 +299,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void LstAvailableActions_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            PasteActionMenuItem.IsEnabled = _commandClipboard.Count != 0;
+            PasteToNewActionMenuItem.Visibility = PasteToSelectedActionMenuItem.Visibility = _commandClipboard.Count != 0 ? Visibility.Visible : Visibility.Collapsed;
             CopyActionMenuItem.IsEnabled = CutActionMenuItem.IsEnabled = lstAvailableActions.SelectedIndex != -1;
         }
 
@@ -315,7 +315,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             _cutActionSource = null;
         }
 
-        private void PasteActionMenuItem_Click(object sender, RoutedEventArgs e)
+        private void PasteToNewActionMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (_commandClipboard.Count == 0) return;
 
@@ -325,25 +325,56 @@ namespace GestureSign.ControlPanel.MainWindowControls
             lstAvailableActions.SelectedItem = null;
             foreach (var actionGroup in _commandClipboard.GroupBy(ci => ci.Action))
             {
-                IAction currentAction;
-                if (targetApplication.Actions.Contains(actionGroup.Key))
+                var sourceAction = actionGroup.Key;
+                var newAction = new GestureSign.Common.Applications.Action()
                 {
-                    currentAction = actionGroup.Key;
-                }
-                else
-                {
-                    currentAction = ((GestureSign.Common.Applications.Action)actionGroup.Key).Clone() as GestureSign.Common.Applications.Action;
-                    currentAction.Commands = new List<ICommand>(1);
-                    targetApplication.AddAction(currentAction);
-                }
+                    Condition = sourceAction.Condition,
+                    ContinuousGesture = sourceAction.ContinuousGesture,
+                    GestureName = sourceAction.GestureName,
+                    Commands = new List<ICommand>(),
+                };
+                targetApplication.AddAction(newAction);
 
                 foreach (var info in actionGroup)
                 {
                     if (_cutActionSource != null)
                     {
                         info.Action.RemoveCommand(info.Command);
-                        if (_cutActionSource != targetApplication && info.Action.Commands.Count() == 0)
-                            _cutActionSource.RemoveAction(info.Action);
+                    }
+
+                    var newCommand = ((Command)info.Command).Clone() as Command;
+                    newCommand.Name = ApplicationManager.GetNextCommandName(newCommand.Name, info.Action);
+                    newAction.AddCommand(newCommand);
+                }
+            }
+
+            if (_cutActionSource != null)
+            {
+                _cutActionSource = null;
+                _commandClipboard.Clear();
+            }
+
+            ApplicationManager.Instance.SaveApplications();
+        }
+
+        private void PasteToSelectedActionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_commandClipboard.Count == 0) return;
+
+            var targetApplication = lstAvailableApplication.SelectedItem as IApplication;
+            if (targetApplication == null) return;
+            var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
+            if (selectedCommand == null || selectedCommand.Action == null) return;
+            lstAvailableActions.SelectedItem = null;
+
+            IAction currentAction = selectedCommand.Action;
+            foreach (var actionGroup in _commandClipboard.GroupBy(ci => ci.Action))
+            {
+                foreach (var info in actionGroup)
+                {
+                    if (_cutActionSource != null)
+                    {
+                        info.Action.RemoveCommand(info.Command);
                     }
 
                     var newCommand = ((Command)info.Command).Clone() as Command;
